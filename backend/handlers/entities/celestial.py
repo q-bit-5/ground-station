@@ -221,7 +221,8 @@ async def get_celestial_scene(
         data=payload,
         logger=logger,
         force_refresh=False,
-        allow_network_fetch=False,
+        # Scene reads should resolve the requested projection window, not only cache-only fallbacks.
+        allow_network_fetch=True,
     )
     return cast(Dict[str, Any], scene)
 
@@ -251,7 +252,8 @@ async def get_celestial_tracks(
         data=payload,
         logger=logger,
         force_refresh=False,
-        allow_network_fetch=False,
+        # Projection changes (e.g. 1d -> 1m) must fetch matching vectors on cache miss.
+        allow_network_fetch=True,
         per_row_callback=emit_partial_row,
     )
     return cast(Dict[str, Any], tracks)

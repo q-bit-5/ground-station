@@ -219,6 +219,56 @@ const PassTimelineComponent = ({
   // Skip this adjustment if nextPassesHours is explicitly provided (e.g., from overview page)
   // Also skip if forced time window is provided
   const [hasAdjustedInitialWindow, setHasAdjustedInitialWindow] = useState(false);
+  const lastRequestedTimeWindowHoursRef = useRef(
+    nextPassesHours !== null ? Number(nextPassesHours) : Number(initialTimeWindowHours),
+  );
+
+  // Keep internal timeline window state in sync with parent period changes.
+  // This is required for celestial period switches (e.g. 6m -> 7d), while preserving
+  // forced window behavior used by overview timeline.
+  React.useEffect(() => {
+    if (forceTimeWindowStart && forceTimeWindowEnd) {
+      // Force a re-sync when we later exit forced-window mode.
+      lastRequestedTimeWindowHoursRef.current = Number.NaN;
+      return;
+    }
+
+    const requestedWindowHours = nextPassesHours !== null
+      ? Number(nextPassesHours)
+      : Number(initialTimeWindowHours);
+    if (!Number.isFinite(requestedWindowHours) || requestedWindowHours <= 0) {
+      return;
+    }
+
+    const previousWindowHours = Number(lastRequestedTimeWindowHoursRef.current);
+    if (Math.abs(previousWindowHours - requestedWindowHours) < 1e-6) {
+      return;
+    }
+    lastRequestedTimeWindowHoursRef.current = requestedWindowHours;
+
+    const now = Date.now();
+    const nextStart = now - (pastOffsetHours * 60 * 60 * 1000);
+    setTimeWindowHours(requestedWindowHours);
+    setTimeWindowStart(nextStart);
+    actualInitialTimeWindowHours.current = requestedWindowHours;
+    // Reset resize stabilization so the new period is laid out immediately.
+    isLayoutStableRef.current = false;
+    setContainerWidth(null);
+
+    // For explicit parent-controlled windows, no one-time auto-adjustment is needed.
+    if (nextPassesHours !== null) {
+      setHasAdjustedInitialWindow(true);
+      return;
+    }
+    setHasAdjustedInitialWindow(false);
+  }, [
+    initialTimeWindowHours,
+    nextPassesHours,
+    pastOffsetHours,
+    forceTimeWindowStart,
+    forceTimeWindowEnd,
+  ]);
+
   React.useEffect(() => {
     // ALWAYS skip if forced time window is provided (check this first, every time)
     if (forceTimeWindowStart && forceTimeWindowEnd) {
@@ -642,6 +692,16 @@ const PassTimelineComponent = ({
     }).length;
   }, [timelineData, geoIndices, showGeostationarySatellites]);
 
+  const LONG_WINDOW_MAX_HOURS = 24 * 30;
+  const suppressCurveLabels = React.useMemo(
+    () => {
+      const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      return Number.isFinite(durationHours) && durationHours > LONG_WINDOW_MAX_HOURS;
+    },
+    [startTime, endTime],
+  );
+  const suppressSunEventMarkers = suppressCurveLabels;
+
   // Attach non-passive touch event listeners ONCE (stable wrapper functions)
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -873,7 +933,7 @@ const PassTimelineComponent = ({
           })}
 
           {/* Sun event markers - sunrise/sunset lines */}
-          {showSunMarkers && sunData.sunEvents.map((event, index) => {
+          {showSunMarkers && !suppressSunEventMarkers && sunData.sunEvents.map((event, index) => {
             const totalDuration = endTime.getTime() - startTime.getTime();
             const position = ((event.time - startTime.getTime()) / totalDuration) * 100;
             const leftPosition = `calc(${Y_AXIS_WIDTH}px + (100% - ${Y_AXIS_WIDTH}px) * ${position / 100})`;
@@ -982,6 +1042,7 @@ const PassTimelineComponent = ({
                     startTime={startTime}
                     endTime={endTime}
                     labelType={labelType}
+                    suppressCurveLabels={suppressCurveLabels}
                     labelVerticalOffset={labelVerticalOffset}
                     geoIndex={geoIndex}
                     totalGeoSats={totalGeoSats}

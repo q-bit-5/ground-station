@@ -11,6 +11,7 @@ export const PassCurve = ({
   startTime,
   endTime,
   labelType = false,
+  suppressCurveLabels = false,
   labelVerticalOffset = 150,
   geoIndex = null,
   totalGeoSats = null,
@@ -35,7 +36,7 @@ export const PassCurve = ({
   const shouldFadeForSelection = isTargetSelectionActive && !isSelectedTarget;
   const shouldEmphasizeForSelection = isTargetSelectionActive && isSelectedTarget;
   const shouldForceSelectedLabel = shouldEmphasizeForSelection;
-  const shouldRenderLabel = Boolean(labelType) || shouldForceSelectedLabel;
+  const shouldRenderLabel = !suppressCurveLabels && (Boolean(labelType) || shouldForceSelectedLabel);
 
   const passColor = (() => {
     if (pass.isCurrent) return stateTokens.activeStroke;

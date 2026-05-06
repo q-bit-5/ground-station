@@ -66,6 +66,71 @@ async def test_refresh_celestial_now_uses_network_fetch(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_get_celestial_scene_uses_network_fetch(monkeypatch):
+    captured = {}
+
+    async def _stub_build_scene_payload(_data, _logger):
+        return {"future_hours": 720, "celestial": [{"command": "Voyager 1"}]}
+
+    async def _stub_build_celestial_scene(**kwargs):
+        captured.update(kwargs)
+        return {"success": True, "data": {"celestial": []}}
+
+    monkeypatch.setattr(celestial, "_build_scene_payload", _stub_build_scene_payload)
+    monkeypatch.setattr(celestial, "build_celestial_scene", _stub_build_celestial_scene)
+
+    result = await celestial.get_celestial_scene(
+        sio=_DummySio(),
+        data={"future_hours": 720},
+        logger=_DummyLogger(),
+        sid="sid-1",
+    )
+
+    assert result["success"] is True
+    assert captured["force_refresh"] is False
+    assert captured["allow_network_fetch"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_celestial_tracks_uses_network_fetch(monkeypatch):
+    captured = {}
+
+    async def _stub_build_scene_payload(_data, _logger):
+        return {"future_hours": 720, "celestial": [{"command": "Voyager 1"}]}
+
+    async def _stub_load_stream_observer_location():
+        return None
+
+    def _stub_build_partial_row_emitter(**_kwargs):
+        async def _emit(_row, _index, _total):
+            return None
+
+        return _emit
+
+    async def _stub_build_celestial_tracks(**kwargs):
+        captured.update(kwargs)
+        return {"success": True, "data": {"celestial": []}}
+
+    monkeypatch.setattr(celestial, "_build_scene_payload", _stub_build_scene_payload)
+    monkeypatch.setattr(
+        celestial, "_load_stream_observer_location", _stub_load_stream_observer_location
+    )
+    monkeypatch.setattr(celestial, "_build_partial_row_emitter", _stub_build_partial_row_emitter)
+    monkeypatch.setattr(celestial, "build_celestial_tracks", _stub_build_celestial_tracks)
+
+    result = await celestial.get_celestial_tracks(
+        sio=_DummySio(),
+        data={"future_hours": 720},
+        logger=_DummyLogger(),
+        sid="sid-1",
+    )
+
+    assert result["success"] is True
+    assert captured["force_refresh"] is False
+    assert captured["allow_network_fetch"] is True
+
+
+@pytest.mark.asyncio
 async def test_refresh_monitored_celestial_now_uses_network_fetch(monkeypatch):
     captured = {}
     persisted_updates = []
