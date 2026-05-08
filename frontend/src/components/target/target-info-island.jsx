@@ -617,30 +617,11 @@ const TargetInfoIsland = () => {
                             </Box>
                         </Box>
                     </Box>
-                    <Box sx={{ ml: 1, display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
-                        {satelliteData && satelliteData['details'] && (
-                            <Box>
-                                {betterStatusValue(satelliteData['details']['status'])}
-                            </Box>
-                        )}
-                        <Tooltip title="Satellite target">
-                            <Box
-                                sx={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: '50%',
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    bgcolor: 'background.paper',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <SatelliteAltIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
-                            </Box>
-                        </Tooltip>
-                    </Box>
+                    {satelliteData && satelliteData['details'] && (
+                        <Box sx={{ ml: 1, flexShrink: 0 }}>
+                            {betterStatusValue(satelliteData['details']['status'])}
+                        </Box>
+                    )}
                 </Box>
 
                 <Grid container spacing={0.5}>
