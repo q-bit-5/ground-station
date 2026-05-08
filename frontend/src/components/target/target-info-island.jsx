@@ -77,6 +77,7 @@ const AU_IN_KM = 149597870.7;
 const SECONDS_PER_DAY = 86400;
 const AU_PER_DAY_TO_KM_PER_S = AU_IN_KM / SECONDS_PER_DAY;
 const LIGHT_TIME_MIN_PER_AU = 8.316746397;
+const KM_TO_MI = 0.621371192;
 
 const magnitude3 = (vector) => {
     if (!Array.isArray(vector) || vector.length < 3) return NaN;
@@ -236,10 +237,15 @@ const TargetInfoIsland = () => {
     const nonSatelliteDistanceKm = Number.isFinite(nonSatelliteDistanceAu) ? nonSatelliteDistanceAu * AU_IN_KM : NaN;
     const nonSatelliteSpeedAuPerDay = magnitude3(nonSatelliteTrack?.velocity_xyz_au_per_day);
     const nonSatelliteSpeedKmS = Number.isFinite(nonSatelliteSpeedAuPerDay) ? nonSatelliteSpeedAuPerDay * AU_PER_DAY_TO_KM_PER_S : NaN;
+    const nonSatelliteSpeedMiS = Number.isFinite(nonSatelliteSpeedKmS) ? nonSatelliteSpeedKmS * KM_TO_MI : NaN;
     const nonSatelliteLightTimeMinutes = Number.isFinite(nonSatelliteDistanceAu) ? nonSatelliteDistanceAu * LIGHT_TIME_MIN_PER_AU : NaN;
     const nonSatelliteProjection = nonSatelliteTrack?.orbit_sampling || {};
     const nonSatelliteLastRefresh = monitoredTarget?.lastRefreshAt || monitoredTarget?.last_refresh_at || null;
     const nonSatelliteHasRealtime = Number.isFinite(nonSatelliteAzimuth) || Number.isFinite(nonSatelliteElevation);
+    const satelliteAltitudeKm = Number(satelliteData?.position?.alt);
+    const satelliteVelocityKmS = Number(satelliteData?.position?.vel);
+    const satelliteAltitudeMi = Number.isFinite(satelliteAltitudeKm) ? satelliteAltitudeKm * KM_TO_MI : NaN;
+    const satelliteVelocityMiS = Number.isFinite(satelliteVelocityKmS) ? satelliteVelocityKmS * KM_TO_MI : NaN;
     const satelliteElevation = Number(satelliteData?.position?.el);
     const satelliteVisible = Number.isFinite(satelliteElevation) ? satelliteElevation > 0 : null;
     const satelliteVisibilityLabel = satelliteVisible === true
@@ -745,6 +751,9 @@ const TargetInfoIsland = () => {
                                     {satelliteData && satelliteData['position'] ? humanizeAltitude(satelliteData['position']['alt'], 0) : '--'}
                                     <Typography component="span" sx={{ ml: 0.5, fontSize: '0.7rem', color: 'text.secondary' }}>km</Typography>
                                 </Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem' }}>
+                                    {Number.isFinite(satelliteAltitudeMi) ? `${satelliteAltitudeMi.toFixed(1)} mi` : ''}
+                                </Typography>
                             </Box>
                         </Grid>
                         <Grid size={6}>
@@ -762,6 +771,9 @@ const TargetInfoIsland = () => {
                                 <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary', fontFamily: 'monospace', lineHeight: 1 }}>
                                     {satelliteData && satelliteData['position'] ? humanizeVelocity(satelliteData['position']['vel']) : '--'}
                                     <Typography component="span" sx={{ ml: 0.5, fontSize: '0.7rem', color: 'text.secondary' }}>km/s</Typography>
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem' }}>
+                                    {Number.isFinite(satelliteVelocityMiS) ? `${satelliteVelocityMiS.toFixed(3)} mi/s` : ''}
                                 </Typography>
                             </Box>
                         </Grid>
@@ -1385,6 +1397,9 @@ const TargetInfoIsland = () => {
                                         <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary', fontFamily: 'monospace', lineHeight: 1 }}>
                                             {Number.isFinite(nonSatelliteSpeedKmS) ? nonSatelliteSpeedKmS.toFixed(3) : '--'}
                                             <Typography component="span" sx={{ ml: 0.5, fontSize: '0.7rem', color: 'text.secondary' }}>km/s</Typography>
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem' }}>
+                                            {Number.isFinite(nonSatelliteSpeedMiS) ? `${nonSatelliteSpeedMiS.toFixed(3)} mi/s` : ''}
                                         </Typography>
                                     </Box>
                                 </Grid>
