@@ -126,6 +126,16 @@ const preferenceFieldHeadingSx = {
     minWidth: 0,
 };
 
+const integrationStatusChipSx = {
+    height: 16,
+    '& .MuiChip-label': {
+        px: 0.6,
+        fontSize: '0.62rem',
+        lineHeight: 1.1,
+        fontWeight: 400,
+    },
+};
+
 const PreferenceFieldHeading = ({ title, subtitle }) => (
     <Typography variant="body2" title={`${title} ${subtitle || ''}`.trim()} sx={preferenceFieldHeadingSx}>
         <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -178,6 +188,7 @@ const SecretsField = ({
                     color={value ? 'success' : 'default'}
                     label={statusLabel}
                     variant={value ? 'filled' : 'outlined'}
+                    sx={integrationStatusChipSx}
                 />
             </SettingsMetaRow>
             <TextField
@@ -598,6 +609,7 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
                                                         label={draft.gemini_api_key
                                                             ? t('preferences.configured', { defaultValue: 'Configured' })
                                                             : t('preferences.not_configured', { defaultValue: 'Not configured' })}
+                                                        sx={integrationStatusChipSx}
                                                     />
                                                 </SettingsMetaRow>
                                             </AccordionSummary>
@@ -662,6 +674,7 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
                                                         label={draft.deepgram_api_key
                                                             ? t('preferences.configured', { defaultValue: 'Configured' })
                                                             : t('preferences.not_configured', { defaultValue: 'Not configured' })}
+                                                        sx={integrationStatusChipSx}
                                                     />
                                                 </SettingsMetaRow>
                                             </AccordionSummary>
@@ -726,6 +739,7 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
                                                         label={draft.google_translate_api_key
                                                             ? t('preferences.configured', { defaultValue: 'Configured' })
                                                             : t('preferences.not_configured', { defaultValue: 'Not configured' })}
+                                                        sx={integrationStatusChipSx}
                                                     />
                                                 </SettingsMetaRow>
                                             </AccordionSummary>
