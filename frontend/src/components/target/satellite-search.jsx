@@ -107,6 +107,10 @@ const buildOptionSearchText = (option) => {
             option?.display_name,
             option?.command,
             option?.target_identifier,
+            option?.target_type,
+            'mission',
+            'spacecraft',
+            option?.mission_status,
         ]
             .map((value) => String(value || '').trim().toLowerCase())
             .filter(Boolean)
@@ -118,6 +122,11 @@ const buildOptionSearchText = (option) => {
             option?.name,
             option?.body_id,
             option?.target_identifier,
+            option?.target_type,
+            option?.body_type,
+            option?.parent_body_id,
+            'body',
+            'celestial',
         ]
             .map((value) => String(value || '').trim().toLowerCase())
             .filter(Boolean)
@@ -130,6 +139,8 @@ const buildOptionSearchText = (option) => {
         option?.alternative_name,
         option?.norad_id,
         option?.target_identifier,
+        option?.target_type,
+        'satellite',
     ]
         .map((value) => String(value || '').trim().toLowerCase())
         .filter(Boolean)
