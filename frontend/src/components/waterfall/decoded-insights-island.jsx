@@ -431,6 +431,44 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
         };
     }, [outputs]);
 
+    const gnssActivity = useMemo(() => {
+        const activityOutputs = outputs
+            .filter((item) => item?.type === 'decoder-output' && item?.decoder_type === 'gnss')
+            .map((item) => ({
+                timestampMs: Number(item.timestamp) * 1000,
+                output: item.output || {},
+            }))
+            .filter((item) => Number.isFinite(item.timestampMs) && String(item.output?.event || '') === 'gnss_activity')
+            .sort((a, b) => b.timestampMs - a.timestampMs);
+
+        const latest = activityOutputs[0];
+        if (!latest) {
+            return {
+                active: false,
+                heartbeatAlive: false,
+                lastSeenMs: null,
+                hasPvt: false,
+                packetsPerSec: 0,
+                monitorObsPerSec: 0,
+            };
+        }
+
+        const packetsPerSec = toFiniteNumber(latest.output?.udp_packets_per_sec) || 0;
+        const monitorObsPerSec = toFiniteNumber(latest.output?.monitor_observations_per_sec) || 0;
+        const lastSeenMs = latest.timestampMs;
+        const fresh = (Date.now() - lastSeenMs) <= 3500;
+        const active = fresh && (Boolean(latest.output?.has_activity) || packetsPerSec > 0 || monitorObsPerSec > 0);
+
+        return {
+            active,
+            heartbeatAlive: fresh,
+            lastSeenMs,
+            hasPvt: Boolean(latest.output?.has_pvt),
+            packetsPerSec,
+            monitorObsPerSec,
+        };
+    }, [outputs]);
+
     const gnssStatusStats = useMemo(() => {
         let trackingSatCount = 0;
         let acquiredSatCount = 0;
@@ -821,6 +859,9 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             {`Fix quality: ${receiverFix.fixQuality !== null ? receiverFix.fixQuality : '-'} | Satellites: ${receiverFix.satellites !== null ? receiverFix.satellites : '-'}`}
                                         </Typography>
+                                        <Typography variant="caption" sx={{ color: gnssActivity.active ? 'success.main' : gnssActivity.heartbeatAlive ? 'info.main' : 'text.secondary' }}>
+                                            {`Receiver activity: ${gnssActivity.active ? `yes (${gnssActivity.packetsPerSec.toFixed(1)} pkt/s)` : (gnssActivity.heartbeatAlive ? 'alive (no UDP packets)' : 'waiting')}`}
+                                        </Typography>
                                     </Box>
 
                                     <Divider sx={{ borderColor: theme.palette.border.main }} />
@@ -892,6 +933,13 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                             <Chip size="small" variant="outlined" label={`Lost ${gnssStatusStats.lostSatCount}`} sx={{ height: 18, fontSize: '0.62rem' }} />
                             <Chip size="small" variant="outlined" label={`Events ${gnssEventCount}`} sx={{ height: 18, fontSize: '0.62rem' }} />
                             <Chip size="small" variant="outlined" label={`1m ${gnssStatusStats.recentEventCount}`} sx={{ height: 18, fontSize: '0.62rem' }} />
+                            <Chip
+                                size="small"
+                                color={gnssActivity.active ? 'info' : gnssActivity.heartbeatAlive ? 'warning' : 'default'}
+                                variant={gnssActivity.active || gnssActivity.heartbeatAlive ? 'filled' : 'outlined'}
+                                label={gnssActivity.active ? `RX ${gnssActivity.packetsPerSec.toFixed(1)} pkt/s` : (gnssActivity.heartbeatAlive ? 'RX alive' : 'RX waiting')}
+                                sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700 }}
+                            />
                             <Chip
                                 size="small"
                                 color={receiverFix.status === 'FIX' ? 'success' : receiverFix.status === 'NO FIX' ? 'warning' : 'default'}

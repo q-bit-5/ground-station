@@ -1,7 +1,6 @@
 # Ground Station - GNSS-SDR Decoder
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import errno
 import glob
 import logging
 import os
@@ -21,6 +20,11 @@ import numpy as np
 import psutil
 import setproctitle
 from scipy import signal as sp_signal
+
+try:
+    import zmq
+except Exception:  # pragma: no cover - optional runtime dependency
+    zmq = None
 
 from demodulators.basedecoderprocess import BaseDecoderProcess
 from demodulators.gnssmonitorudp import GnssUdpMonitorReceiver
@@ -45,7 +49,7 @@ class GNSSSdrDecoder(BaseDecoderProcess):
     It reuses the existing raw-IQ decoder path:
     - reads IQ chunks from iq_queue
     - uses VFO center to frequency-translate within the current SDR stream
-    - writes IQ to a FIFO consumed by gnss-sdr
+    - publishes IQ to a ZMQ endpoint consumed by gnss-sdr
     - emits decoder-status / decoder-stats through the existing data queue
     """
 
@@ -74,9 +78,10 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         # Runtime / IO
         self.gnss_process: Optional[subprocess.Popen[str]] = None
         self.gnss_stdout_thread: Optional[threading.Thread] = None
-        self.fifo_fd: Optional[int] = None
+        self.zmq_context = None
+        self.zmq_socket = None
+        self.zmq_endpoint: Optional[str] = None
         self.runtime_dir: Optional[str] = None
-        self.fifo_path: Optional[str] = None
         self.config_path: Optional[str] = None
         self.nmea_path: Optional[str] = None
         self.nmea_read_offset = 0
@@ -86,7 +91,7 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         self.gnss_log_read_offset = 0
         self._last_output_event_ts = 0.0
         self._last_output_event_line = ""
-        self._last_fifo_drop_log_ts = 0.0
+        self._last_input_drop_log_ts = 0.0
         self.monitor_receiver: Optional[GnssUdpMonitorReceiver] = None
         self.monitor_client_addresses = os.environ.get(
             "GNSS_SDR_MONITOR_CLIENT_ADDRESSES", "127.0.0.1"
@@ -97,9 +102,16 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         self._udp_tracking_min_emit_interval_s = float(
             os.environ.get("GNSS_SDR_MONITOR_EVENT_INTERVAL_S", "1.0")
         )
-        # Keep write timeout short so the decoder loop remains responsive,
-        # while still allowing retried writes for FIFO backpressure spikes.
-        self.fifo_write_timeout_s = 0.2
+        self._activity_heartbeat_interval_s = float(
+            os.environ.get("GNSS_ACTIVITY_HEARTBEAT_INTERVAL_S", "1.0")
+        )
+        self._last_activity_heartbeat_ts = 0.0
+        self._last_activity_packets_total = 0
+        self._last_activity_monitor_obs_total = 0
+        self._last_status = DecoderStatus.IDLE
+        self.gnss_input_transport = "zmq"
+        self.zmq_startup_delay_s = float(os.environ.get("GNSS_ZMQ_STARTUP_DELAY_S", "0.2"))
+        self.zmq_write_timeout_s = float(os.environ.get("GNSS_ZMQ_WRITE_TIMEOUT_S", "1.0"))
 
         # DSP state
         self.sdr_sample_rate: Optional[float] = None
@@ -223,6 +235,7 @@ class GNSSSdrDecoder(BaseDecoderProcess):
     def _send_status_update(
         self, status: DecoderStatus, info: Optional[Dict[str, Any]] = None
     ) -> None:
+        self._last_status = status
         enabled = []
         if self.enable_gps:
             enabled.append("GPS")
@@ -271,16 +284,24 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         ui_stats = {
             "iq_chunks_in": perf_stats.get("iq_chunks_in", 0),
             "samples_in": perf_stats.get("samples_in", 0),
-            "samples_written": perf_stats.get("samples_written_to_fifo", 0),
-            "fifo_write_drops": perf_stats.get("fifo_write_drops", 0),
-            "fifo_blocking_retries": perf_stats.get("fifo_blocking_retries", 0),
-            "fifo_partial_write_events": perf_stats.get("fifo_partial_write_events", 0),
-            "fifo_write_errors": perf_stats.get("fifo_write_errors", 0),
+            "samples_written": perf_stats.get("samples_written_to_input", 0),
+            "input_write_drops": perf_stats.get("input_write_drops", 0),
+            "input_blocking_retries": perf_stats.get("input_blocking_retries", 0),
+            "input_partial_write_events": perf_stats.get("input_partial_write_events", 0),
+            "input_write_errors": perf_stats.get("input_write_errors", 0),
             "queue_timeouts": perf_stats.get("queue_timeouts", 0),
             "udp_packets_total": perf_stats.get("udp_packets_total", 0),
+            "udp_packets_monitor": perf_stats.get("udp_packets_monitor", 0),
+            "udp_packets_acquisition": perf_stats.get("udp_packets_acquisition", 0),
+            "udp_packets_tracking": perf_stats.get("udp_packets_tracking", 0),
+            "udp_packets_pvt": perf_stats.get("udp_packets_pvt", 0),
+            "udp_monitor_observations": perf_stats.get("udp_monitor_observations", 0),
             "udp_parse_errors": perf_stats.get("udp_parse_errors", 0),
             "udp_events_emitted": perf_stats.get("udp_events_emitted", 0),
             "udp_events_suppressed": perf_stats.get("udp_events_suppressed", 0),
+            "activity_heartbeats_emitted": perf_stats.get("activity_heartbeats_emitted", 0),
+            "gnss_input_transport": self.gnss_input_transport,
+            "gnss_zmq_endpoint": self.zmq_endpoint,
             "last_gnss_log": self.last_gnss_log_line,
         }
 
@@ -413,14 +434,19 @@ class GNSSSdrDecoder(BaseDecoderProcess):
     def _build_gnss_sdr_config(self) -> str:
         channel_counts = self._allocate_channel_counts()
         nmea_filename = os.path.basename(self.nmea_path) if self.nmea_path else "gnss_sdr_pvt.nmea"
+        input_sample_rate = int(self.output_sample_rate or self.gnss_sample_rate)
         lines = [
             "; Auto-generated by Ground Station GNSSSdrDecoder",
             "[GNSS-SDR]",
-            f"GNSS-SDR.internal_fs_sps={int(self.output_sample_rate or self.gnss_sample_rate)}",
+            f"GNSS-SDR.internal_fs_sps={input_sample_rate}",
             "",
-            "SignalSource.implementation=Fifo_Signal_Source",
-            f"SignalSource.filename={self.fifo_path}",
-            "SignalSource.sample_type=ishort",
+            "SignalSource.implementation=ZMQ_Signal_Source",
+            f"SignalSource.endpoint={self.zmq_endpoint}",
+            "SignalSource.item_type=gr_complex",
+            "SignalSource.vlen=1",
+            "SignalSource.pass_tags=false",
+            "SignalSource.timeout_ms=100",
+            f"SignalSource.sampling_frequency={input_sample_rate}",
             "SignalSource.dump=false",
             "",
             "SignalConditioner.implementation=Pass_Through",
@@ -576,16 +602,34 @@ class GNSSSdrDecoder(BaseDecoderProcess):
 
     def _prepare_runtime(self):
         self.runtime_dir = tempfile.mkdtemp(prefix=f"gnss_sdr_{self.session_id}_vfo{self.vfo}_")
-        self.fifo_path = os.path.join(self.runtime_dir, "iq_input.fifo")
+        self.zmq_endpoint = None
         self.config_path = os.path.join(self.runtime_dir, "gnss-sdr.conf")
         self.nmea_path = os.path.join(self.runtime_dir, "gnss_sdr_pvt.nmea")
         self._last_udp_event_emit_ts = {}
+        self._last_activity_heartbeat_ts = 0.0
+        self._last_activity_packets_total = 0
+        self._last_activity_monitor_obs_total = 0
         if self.monitor_receiver is not None:
             self.monitor_receiver.close()
         self.monitor_receiver = GnssUdpMonitorReceiver(bind_host=self.monitor_bind_host)
         self.monitor_ports = dict(self.monitor_receiver.ports)
 
-        os.mkfifo(self.fifo_path)
+        if zmq is None:
+            raise RuntimeError("GNSS ZMQ input selected but pyzmq is not available")
+        self.zmq_context = zmq.Context()
+        self.zmq_socket = self.zmq_context.socket(zmq.PUB)
+        self.zmq_socket.setsockopt(zmq.LINGER, 0)
+        sndhwm = int(os.environ.get("GNSS_ZMQ_SNDHWM", "0") or 0)
+        if sndhwm > 0:
+            self.zmq_socket.setsockopt(zmq.SNDHWM, sndhwm)
+        configured_endpoint = os.environ.get("GNSS_ZMQ_ENDPOINT", "").strip()
+        if configured_endpoint:
+            self.zmq_socket.bind(configured_endpoint)
+            self.zmq_endpoint = configured_endpoint
+        else:
+            self.zmq_socket.bind("tcp://127.0.0.1:*")
+            self.zmq_endpoint = self.zmq_socket.getsockopt_string(zmq.LAST_ENDPOINT)
+
         with open(self.config_path, "w", encoding="utf-8") as f:
             f.write(self._build_gnss_sdr_config())
 
@@ -722,70 +766,28 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         for line in new_lines[-50:]:
             self._handle_gnss_log_line(line)
 
-    def _open_fifo_writer(self, timeout_s: float = 10.0) -> None:
-        if not self.fifo_path:
-            raise RuntimeError("FIFO path is not initialized")
-        deadline = time.time() + timeout_s
-        while time.time() < deadline and self.running.value == 1:
-            try:
-                self.fifo_fd = os.open(self.fifo_path, os.O_WRONLY | os.O_NONBLOCK)
-                return
-            except OSError as e:
-                if e.errno in (errno.ENXIO, errno.ENOENT):
-                    time.sleep(0.1)
-                    continue
-                raise
-        raise TimeoutError("Timed out waiting for gnss-sdr FIFO reader")
-
-    def _write_fifo_payload(self, payload: bytes) -> Tuple[int, int, int, int, int]:
-        """
-        Write IQ bytes to the FIFO with partial-write handling.
-
-        This prevents silent sample loss when `os.write` accepts only part of the
-        buffer or temporarily returns EAGAIN under FIFO backpressure.
-        """
-        if not payload:
+    def _write_zmq_payload(
+        self, payload: bytes, sample_count: int
+    ) -> Tuple[int, int, int, int, int]:
+        if sample_count <= 0:
             return 0, 0, 0, 0, 0
+        if self.zmq_socket is None or zmq is None:
+            return 0, sample_count, 0, 0, 1
 
-        if self.fifo_fd is None:
-            return 0, len(payload) // 4, 0, 0, 1
-
-        total_bytes = len(payload)
-        bytes_written = 0
-        blocking_retries = 0
-        partial_write_events = 0
-        write_errors = 0
-        deadline = time.time() + self.fifo_write_timeout_s
-
-        while bytes_written < total_bytes and self.running.value == 1:
+        retries = 0
+        deadline = time.time() + self.zmq_write_timeout_s
+        while self.running.value == 1:
             try:
-                wrote_now = os.write(self.fifo_fd, payload[bytes_written:])
-                if wrote_now <= 0:
-                    break
-                if wrote_now < (total_bytes - bytes_written):
-                    partial_write_events += 1
-                bytes_written += wrote_now
-            except InterruptedError:
-                blocking_retries += 1
-                continue
-            except BlockingIOError:
-                blocking_retries += 1
+                self.zmq_socket.send(payload, flags=zmq.NOBLOCK)
+                return sample_count, 0, retries, 0, 0
+            except zmq.Again:
+                retries += 1
                 if time.time() >= deadline:
                     break
                 time.sleep(0.001)
-            except OSError:
-                write_errors += 1
+            except Exception:
                 break
-
-        wrote_samples = bytes_written // 4
-        dropped_samples = max(0, (total_bytes - bytes_written) // 4)
-        return (
-            wrote_samples,
-            dropped_samples,
-            blocking_retries,
-            partial_write_events,
-            write_errors,
-        )
+        return 0, sample_count, retries, 0, 1
 
     def _parse_nmea_lat_lon(self, value: str, hemisphere: str) -> Optional[float]:
         if not value:
@@ -990,23 +992,38 @@ class GNSSSdrDecoder(BaseDecoderProcess):
             return
 
         polled = self.monitor_receiver.poll()
+        monitor_messages = polled.get("monitor", [])
+        acquisition_messages = polled.get("acquisition", [])
+        tracking_messages = polled.get("tracking", [])
         snapshot = self.monitor_receiver.snapshot_stats()
+        observable_count = (
+            len(monitor_messages) + len(acquisition_messages) + len(tracking_messages)
+        )
         with self.stats_lock:
             self.stats["udp_packets_total"] = snapshot.get("packets_total", 0)
             self.stats["udp_packets_monitor"] = snapshot.get("packets_monitor", 0)
             self.stats["udp_packets_acquisition"] = snapshot.get("packets_acquisition", 0)
             self.stats["udp_packets_tracking"] = snapshot.get("packets_tracking", 0)
             self.stats["udp_packets_pvt"] = snapshot.get("packets_pvt", 0)
+            self.stats["udp_monitor_observations"] += observable_count
             self.stats["udp_parse_errors"] = snapshot.get("parse_errors", 0)
 
         saw_acquisition = False
         saw_tracking = False
 
-        for obs in polled.get("acquisition", []):
+        for obs in monitor_messages:
+            if bool(obs.get("flag_valid_word")) or bool(obs.get("flag_valid_symbol_output")):
+                self._emit_udp_satellite_event("tracking", obs)
+                saw_tracking = True
+            elif bool(obs.get("flag_valid_acquisition")):
+                self._emit_udp_satellite_event("acquisition", obs)
+                saw_acquisition = True
+
+        for obs in acquisition_messages:
             self._emit_udp_satellite_event("acquisition", obs)
             saw_acquisition = True
 
-        for obs in polled.get("tracking", []):
+        for obs in tracking_messages:
             self._emit_udp_satellite_event("tracking", obs)
             saw_tracking = True
 
@@ -1023,6 +1040,65 @@ class GNSSSdrDecoder(BaseDecoderProcess):
             self._last_log_status_emit_ts = now
             self._send_status_update(DecoderStatus.ACQUIRING, {"source": "udp_monitor"})
 
+    def _emit_activity_heartbeat(self, now: Optional[float] = None) -> None:
+        current_time = now if now is not None else time.time()
+        with self.stats_lock:
+            packets_total = int(self.stats.get("udp_packets_total", 0))
+            monitor_packets = int(self.stats.get("udp_packets_monitor", 0))
+            acquisition_packets = int(self.stats.get("udp_packets_acquisition", 0))
+            tracking_packets = int(self.stats.get("udp_packets_tracking", 0))
+            pvt_packets = int(self.stats.get("udp_packets_pvt", 0))
+            monitor_obs_total = int(self.stats.get("udp_monitor_observations", 0))
+            input_write_drops = int(self.stats.get("input_write_drops", 0))
+            queue_timeouts = int(self.stats.get("queue_timeouts", 0))
+
+        elapsed = current_time - self._last_activity_heartbeat_ts
+        if elapsed <= 0:
+            elapsed = self._activity_heartbeat_interval_s
+
+        packets_delta = max(0, packets_total - self._last_activity_packets_total)
+        monitor_obs_delta = max(0, monitor_obs_total - self._last_activity_monitor_obs_total)
+        packets_per_sec = packets_delta / elapsed
+        monitor_obs_per_sec = monitor_obs_delta / elapsed
+        has_activity = packets_delta > 0 or monitor_obs_delta > 0
+        has_pvt = pvt_packets > 0
+
+        self._send_output_update(
+            {
+                "event": "gnss_activity",
+                "message": "GNSS monitor heartbeat",
+                "has_activity": has_activity,
+                "has_pvt": has_pvt,
+                "udp_packets_total": packets_total,
+                "udp_packets_monitor": monitor_packets,
+                "udp_packets_acquisition": acquisition_packets,
+                "udp_packets_tracking": tracking_packets,
+                "udp_packets_pvt": pvt_packets,
+                "udp_packets_delta": packets_delta,
+                "udp_packets_per_sec": packets_per_sec,
+                "monitor_observations_total": monitor_obs_total,
+                "monitor_observations_delta": monitor_obs_delta,
+                "monitor_observations_per_sec": monitor_obs_per_sec,
+                "input_write_drops": input_write_drops,
+                "queue_timeouts": queue_timeouts,
+            }
+        )
+        self._send_status_update(
+            self._last_status,
+            {
+                "gnss_has_activity": has_activity,
+                "gnss_has_pvt": has_pvt,
+                "gnss_udp_packets_per_sec": packets_per_sec,
+                "gnss_monitor_obs_per_sec": monitor_obs_per_sec,
+            },
+        )
+        with self.stats_lock:
+            self.stats["activity_heartbeats_emitted"] += 1
+
+        self._last_activity_heartbeat_ts = current_time
+        self._last_activity_packets_total = packets_total
+        self._last_activity_monitor_obs_total = monitor_obs_total
+
     def _cleanup_runtime(self):
         if self.monitor_receiver is not None:
             try:
@@ -1032,12 +1108,19 @@ class GNSSSdrDecoder(BaseDecoderProcess):
             self.monitor_receiver = None
             self.monitor_ports = {}
 
-        if self.fifo_fd is not None:
+        if self.zmq_socket is not None:
             try:
-                os.close(self.fifo_fd)
+                self.zmq_socket.close()
             except Exception:
                 pass
-            self.fifo_fd = None
+            self.zmq_socket = None
+
+        if self.zmq_context is not None:
+            try:
+                self.zmq_context.term()
+            except Exception:
+                pass
+            self.zmq_context = None
 
         if self.gnss_process:
             self._stop_gnss_process()
@@ -1106,11 +1189,11 @@ class GNSSSdrDecoder(BaseDecoderProcess):
         self.stats: Dict[str, Any] = {
             "iq_chunks_in": 0,
             "samples_in": 0,
-            "samples_written_to_fifo": 0,
-            "fifo_write_drops": 0,
-            "fifo_blocking_retries": 0,
-            "fifo_partial_write_events": 0,
-            "fifo_write_errors": 0,
+            "samples_written_to_input": 0,
+            "input_write_drops": 0,
+            "input_blocking_retries": 0,
+            "input_partial_write_events": 0,
+            "input_write_errors": 0,
             "samples_dropped_out_of_band": 0,
             "queue_timeouts": 0,
             "udp_packets_total": 0,
@@ -1118,9 +1201,11 @@ class GNSSSdrDecoder(BaseDecoderProcess):
             "udp_packets_acquisition": 0,
             "udp_packets_tracking": 0,
             "udp_packets_pvt": 0,
+            "udp_monitor_observations": 0,
             "udp_parse_errors": 0,
             "udp_events_emitted": 0,
             "udp_events_suppressed": 0,
+            "activity_heartbeats_emitted": 0,
             "data_messages_out": 0,
             "last_activity": None,
             "errors": 0,
@@ -1183,12 +1268,16 @@ class GNSSSdrDecoder(BaseDecoderProcess):
             )
             self.gnss_stdout_thread.start()
 
-            self._open_fifo_writer()
+            if self.zmq_startup_delay_s > 0.0:
+                time.sleep(self.zmq_startup_delay_s)
+
             self._send_status_update(
                 DecoderStatus.LISTENING,
                 {
                     "gnss_config_file": self.config_path,
                     "gnss_runtime_dir": self.runtime_dir,
+                    "gnss_input_transport": self.gnss_input_transport,
+                    "gnss_zmq_endpoint": self.zmq_endpoint,
                     "monitor_udp_ports": dict(self.monitor_ports),
                 },
             )
@@ -1209,6 +1298,10 @@ class GNSSSdrDecoder(BaseDecoderProcess):
                     last_cpu_check = now
 
                 if now - last_stats_time >= 1.0:
+                    if (
+                        now - self._last_activity_heartbeat_ts
+                    ) >= self._activity_heartbeat_interval_s:
+                        self._emit_activity_heartbeat(now)
                     self._send_stats_update()
                     last_stats_time = now
 
@@ -1270,39 +1363,34 @@ class GNSSSdrDecoder(BaseDecoderProcess):
                 centered = self._frequency_translate(samples, vfo_center - sdr_center, sdr_rate)
                 decimated = self._decimate_iq(centered)
 
-                i = np.clip(np.real(decimated) * 32767.0, -32768, 32767).astype(np.int16)
-                q = np.clip(np.imag(decimated) * 32767.0, -32768, 32767).astype(np.int16)
-                interleaved = np.empty(i.size * 2, dtype=np.int16)
-                interleaved[0::2] = i
-                interleaved[1::2] = q
-                payload = interleaved.tobytes()
+                payload = np.ascontiguousarray(decimated, dtype=np.complex64).tobytes()
                 (
                     wrote_samples,
                     dropped_samples,
-                    fifo_retries,
+                    input_retries,
                     partial_write_events,
-                    fifo_write_errors,
-                ) = self._write_fifo_payload(payload)
+                    input_write_errors,
+                ) = self._write_zmq_payload(payload, int(decimated.size))
 
                 with self.stats_lock:
                     self.stats["iq_chunks_in"] += 1
                     self.stats["samples_in"] += len(samples)
-                    self.stats["samples_written_to_fifo"] += wrote_samples
-                    self.stats["fifo_write_drops"] += dropped_samples
-                    self.stats["fifo_blocking_retries"] += fifo_retries
-                    self.stats["fifo_partial_write_events"] += partial_write_events
-                    self.stats["fifo_write_errors"] += fifo_write_errors
+                    self.stats["samples_written_to_input"] += wrote_samples
+                    self.stats["input_write_drops"] += dropped_samples
+                    self.stats["input_blocking_retries"] += input_retries
+                    self.stats["input_partial_write_events"] += partial_write_events
+                    self.stats["input_write_errors"] += input_write_errors
                     self.stats["last_activity"] = time.time()
 
                 # Periodic warning keeps runtime visibility when IQ continuity degrades.
-                if dropped_samples > 0 and (now - self._last_fifo_drop_log_ts) >= 2.0:
-                    self._last_fifo_drop_log_ts = now
+                if dropped_samples > 0 and (now - self._last_input_drop_log_ts) >= 2.0:
+                    self._last_input_drop_log_ts = now
                     logger.warning(
-                        "GNSS FIFO write dropped %d samples (retries=%d, partial=%d, errors=%d, vfo=%s)",
+                        "GNSS ZMQ input dropped %d samples (retries=%d, partial=%d, errors=%d, vfo=%s)",
                         dropped_samples,
-                        fifo_retries,
+                        input_retries,
                         partial_write_events,
-                        fifo_write_errors,
+                        input_write_errors,
                         self.vfo,
                     )
 

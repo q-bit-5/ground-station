@@ -91,6 +91,31 @@ def parse_observables_packet(data: bytes) -> List[Dict[str, Any]]:
     return observations
 
 
+def parse_observable_datagram(data: bytes) -> List[Dict[str, Any]]:
+    """
+    Parse a UDP datagram carrying observable content.
+
+    GNSS-SDR builds may emit either:
+    1) `Observables` with repeated GnssSynchro entries, or
+    2) a single raw GnssSynchro message.
+    """
+    observations = parse_observables_packet(data)
+    if observations:
+        return observations
+
+    # Fallback for builds that publish bare GnssSynchro payloads.
+    single = parse_gnss_synchro_message(data)
+    if single and (
+        single.get("prn") is not None
+        or single.get("channel_id") is not None
+        or single.get("flag_valid_acquisition") is not None
+        or single.get("flag_valid_symbol_output") is not None
+        or single.get("flag_valid_word") is not None
+    ):
+        return [single]
+    return []
+
+
 def parse_gnss_synchro_message(data: bytes) -> Dict[str, Any]:
     index = 0
     obs: Dict[str, Any] = {}
@@ -122,6 +147,9 @@ def parse_gnss_synchro_message(data: bytes) -> Dict[str, Any]:
         elif field_number == 18 and wire_type == 0:
             value, index = _read_varint(data, index)
             obs["flag_valid_symbol_output"] = bool(value)
+        elif field_number == 20 and wire_type == 0:
+            value, index = _read_varint(data, index)
+            obs["flag_valid_word"] = bool(value)
         else:
             index = _skip_wire_value(data, index, wire_type)
 
@@ -236,7 +264,7 @@ class GnssUdpMonitorReceiver:
                         if parsed_pvt:
                             messages[stream].append(parsed_pvt)
                     else:
-                        for obs in parse_observables_packet(payload):
+                        for obs in parse_observable_datagram(payload):
                             if obs:
                                 messages[stream].append(obs)
                 except ProtobufParseError:
