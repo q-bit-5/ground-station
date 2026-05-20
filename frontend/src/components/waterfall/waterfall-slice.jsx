@@ -131,6 +131,12 @@ function toFiniteNumber(value) {
 
 function getGnssFixStatusFromOutput(output) {
     const normalizedOutput = output || {};
+    const backendFixStatus = String(normalizedOutput.gnss_fix_status || '').trim().toUpperCase();
+    if (backendFixStatus === 'FIX' || backendFixStatus === 'NO FIX') {
+        // Prefer backend-derived state when available so fix acquire/loss semantics stay centralized.
+        return backendFixStatus;
+    }
+
     const eventType = String(normalizedOutput.event || '').toLowerCase();
     const latitude = toFiniteNumber(normalizedOutput.latitude);
     const longitude = toFiniteNumber(normalizedOutput.longitude);
