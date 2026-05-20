@@ -296,6 +296,16 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
     const currentFixElapsedMs = (displayFixStatus === 'FIX' && fixLifecycle.currentFixStartedAtMs !== null)
         ? Math.max(0, relativeNowMs - fixLifecycle.currentFixStartedAtMs)
         : null;
+    const noFixStartedAtMs = displayFixStatus === 'FIX'
+        ? null
+        : (
+            fixLifecycle.lastFixLostAtMs
+            ?? (fixLifecycle.currentStatus === 'NO FIX' ? fixLifecycle.lastSignalAtMs : null)
+            ?? (displayFixStatus === 'NO FIX' ? receiverFix.lastUpdateMs : null)
+        );
+    const noFixElapsedMs = noFixStartedAtMs !== null
+        ? Math.max(0, relativeNowMs - noFixStartedAtMs)
+        : null;
     const acquiredAgoMs = fixLifecycle.lastFixAcquiredAtMs !== null
         ? Math.max(0, relativeNowMs - fixLifecycle.lastFixAcquiredAtMs)
         : null;
@@ -865,6 +875,14 @@ const DecodedInsightsIsland = React.memo(function DecodedInsightsIsland() {
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.66rem', lineHeight: 1.2, fontFamily: 'monospace', marginLeft: 'auto', textAlign: 'right' }}>
                                             {currentFixElapsedMs !== null ? formatElapsedDuration(currentFixElapsedMs) : '-'}
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', opacity: 0.72, fontSize: '0.66rem', lineHeight: 1.2 }}>
+                                            Time without fix:
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.66rem', lineHeight: 1.2, fontFamily: 'monospace', marginLeft: 'auto', textAlign: 'right' }}>
+                                            {displayFixStatus === 'FIX' || noFixElapsedMs === null ? '-' : formatElapsedDuration(noFixElapsedMs)}
                                         </Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
