@@ -93,7 +93,13 @@ export function SettingsTabSettings() {
 }
 
 export function SettingsTabLocation() {
-    return (<SettingsTabs initialMainTab={"settings"} initialTab={"location"}/>);
+    return (
+        <SettingsTabs
+            initialMainTab={"settings"}
+            initialTab={"settings"}
+            initialSettingsSubTab={"location"}
+        />
+    );
 }
 
 export function SettingsTabRig() {
@@ -124,7 +130,7 @@ export function SettingsTabAbout () {
 const tabsTree = {
     "hardware": ["rigcontrol", "rotatorcontrol", /* "camera", */ "sdrs"],
     "satellites": ["satellites", "orbitalsources", "groups"],
-    "settings": ["settings", "location", "maintenance", "users", "about"],
+    "settings": ["settings", "maintenance", "users", "about"],
 };
 
 function getTabCategory(value) {
@@ -162,6 +168,9 @@ export const SettingsTabs = React.memo(function SettingsTabs({
                 return "satellites";
             case "/satellites/groups":
                 return "groups";
+            case "/settings/backend":
+                return "settings";
+            // Backward-compatible alias for older deep links.
             case "/settings/settings":
                 return "settings";
             case "/settings/preferences":
@@ -169,7 +178,8 @@ export const SettingsTabs = React.memo(function SettingsTabs({
             case "/settings/integrations":
                 return "settings";
             case "/settings/location":
-                return "location";
+                // Keep /settings/location as a deep link, but render it inside the Settings tab group.
+                return "settings";
             case "/settings/maintenance":
                 return "maintenance";
             case "/settings/about":
@@ -202,8 +212,7 @@ export const SettingsTabs = React.memo(function SettingsTabs({
             break;
         case "settings":
             tabsList = [
-                <AntTab key="settings" value="settings" label={t('tabs.settings')} to="/settings/settings" component={Link} />,
-                <AntTab key="location" value="location" label={t('tabs.location')} to="/settings/location" component={Link} />,
+                <AntTab key="settings" value="settings" label={t('tabs.settings')} to="/settings/backend" component={Link} />,
                 // <AntTab key="users" value="users" label="Users" to="/settings/users" component={Link} />,
                 <AntTab key="maintenance" value="maintenance" label={t('tabs.maintenance')} to="/settings/maintenance" component={Link} />,
                 <AntTab key="about" value="about" label={t('tabs.about')} to="/settings/about" component={Link} />,
@@ -239,13 +248,12 @@ export const SettingsTabs = React.memo(function SettingsTabs({
                             ? "preferences"
                             : location.pathname === "/settings/integrations"
                                 ? "integrations"
+                                : location.pathname === "/settings/location"
+                                    ? "location"
                                 : initialSettingsSubTab
                     }
                 />
             );
-            break;
-        case "location":
-            activeTabContent = <LocationPage/>;
             break;
         case "rigcontrol":
             activeTabContent = <RigControlForm/>;
@@ -295,7 +303,7 @@ export const SettingsTabs = React.memo(function SettingsTabs({
              >
                  <AntTab value={"hardware"} label={t('tabs.hardware')} to="/hardware/rig" component={Link}/>
                  <AntTab value={"satellites"} label={t('tabs.satellites')} to="/satellites/satellites" component={Link}/>
-                 <AntTab value={"settings"} label={t('tabs.settings')} to="/settings/settings" component={Link}/>
+                 <AntTab value={"settings"} label={t('tabs.settings')} to="/settings/backend" component={Link}/>
              </AntTabs>
              {tabObject}
              {activeTabContent}
@@ -356,8 +364,12 @@ const SettingsAndPreferencesForm = React.memo(function SettingsAndPreferencesFor
     const navigate = useNavigate();
 
     const resolveSubTabFromPath = React.useCallback((pathname) => {
+        if (pathname === "/settings/backend") return "settings";
+        // Backward-compatible alias for older deep links.
+        if (pathname === "/settings/settings") return "settings";
         if (pathname === "/settings/preferences") return "preferences";
         if (pathname === "/settings/integrations") return "integrations";
+        if (pathname === "/settings/location") return "location";
         return "settings";
     }, []);
 
@@ -379,11 +391,13 @@ const SettingsAndPreferencesForm = React.memo(function SettingsAndPreferencesFor
             return;
         }
 
-        let nextPath = "/settings/settings";
+        let nextPath = "/settings/backend";
         if (nextTab === "preferences") {
             nextPath = "/settings/preferences";
         } else if (nextTab === "integrations") {
             nextPath = "/settings/integrations";
+        } else if (nextTab === "location") {
+            nextPath = "/settings/location";
         }
         navigate(nextPath);
     };
@@ -405,9 +419,11 @@ const SettingsAndPreferencesForm = React.memo(function SettingsAndPreferencesFor
             >
                 <AntTab key="preferences" value="preferences" label={t('tabs.preferences')} />
                 <AntTab key="integrations" value="integrations" label={t('tabs.integrations', { defaultValue: 'Integrations' })} />
-                <AntTab key="settings" value="settings" label={t('tabs.settings')} />
+                <AntTab key="location" value="location" label={t('tabs.location')} />
+                <AntTab key="settings" value="settings" label={t('tabs.backend', { defaultValue: 'Backend' })} />
             </AntTabs>
             {(activeSubTab === "preferences" || activeSubTab === "integrations") ? <PreferencesForm mode={activeSubTab} /> : null}
+            {activeSubTab === "location" ? <LocationPage/> : null}
             {activeSubTab === "settings" ? <AppSettingsForm/> : null}
         </Box>
     );
