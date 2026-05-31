@@ -60,7 +60,7 @@ async def restart_service(sio: Any, data: Optional[Dict], logger: Any, sid: str)
     shutdown_thread = threading.Thread(target=delayed_shutdown, daemon=True)
     shutdown_thread.start()
     return {
-        "status": "success",
+        "success": True,
         "message": (
             "Service restart initiated. All processes will be stopped and container will restart "
             "in 2 seconds."

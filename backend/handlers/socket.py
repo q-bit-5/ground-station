@@ -108,12 +108,12 @@ def register_socketio_handlers(sio):
     async def handle_api_call(sid: str, payload: Optional[Dict[str, Any]] = None):
         """Unified command ingress for all frontend-initiated backend actions."""
         if not isinstance(payload, dict):
-            return {"success": False, "error": "Invalid payload: expected object"}
+            return {"success": False, "data": None, "error": "Invalid payload: expected object"}
 
         cmd = payload.get("cmd")
         data = payload.get("data")
         if not isinstance(cmd, str) or not cmd.strip():
-            return {"success": False, "error": "Invalid payload: missing cmd"}
+            return {"success": False, "data": None, "error": "Invalid payload: missing cmd"}
 
         normalized_cmd = cmd.strip()
         logger.debug(f"Received api.call from sid={sid}, cmd={normalized_cmd}")

@@ -115,7 +115,7 @@ const ServiceControlCard = () => {
   cmd: "service.restart_service",
   data: null
 }, response => {
-  if (response?.status === 'success') {
+  if (response?.success) {
     setCountdown(RESTART_COUNTDOWN_SECONDS);
     setRestartState('countdown');
     setStatusMessage(t('maintenance.restart_accepted', {
