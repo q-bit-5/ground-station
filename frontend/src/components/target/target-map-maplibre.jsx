@@ -73,6 +73,12 @@ const MAPLIBRE_TOOLTIP_DIRECTIONS = Object.freeze(['bottom', 'right', 'left', 't
 const MAPLIBRE_TOOLTIP_DEFAULT_SIZE = Object.freeze({width: 220, height: 48});
 const MAPLIBRE_TOOLTIP_ANCHOR_DISTANCE = 15;
 const MAPLIBRE_TOOLTIP_EDGE_PADDING = 10;
+const MAPLIBRE_LOCK_ON_COVERAGE_PADDING = Object.freeze({
+    top: 40,
+    right: 40,
+    bottom: 72,
+    left: 40,
+});
 // MapLibre anchor names describe the popup side attached to the point, so they are inverse
 // of Leaflet's tooltip direction names (which describe where the tooltip appears).
 const MAPLIBRE_ANCHOR_BY_TOOLTIP_DIRECTION = Object.freeze({
@@ -485,7 +491,8 @@ const TargetMapMapLibreRenderer = () => {
                 (acc, point) => acc.extend([point[1], point[0]]),
                 new maplibregl.LngLatBounds([coveragePoints[0][1], coveragePoints[0][0]], [coveragePoints[0][1], coveragePoints[0][0]])
             );
-            liveMap.fitBounds(bounds, {padding: 1, animate: false});
+            // Keep a visible margin around the footprint and bias it slightly upward.
+            liveMap.fitBounds(bounds, {padding: MAPLIBRE_LOCK_ON_COVERAGE_PADDING, animate: false});
             return;
         }
 
