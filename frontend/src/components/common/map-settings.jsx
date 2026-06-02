@@ -220,7 +220,8 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                             handleShowSatelliteCoverage, handleSetShowSunIcon, handleSetShowMoonIcon,
                             handleShowTerminatorLine, handleFutureOrbitLineColor, handlePastOrbitLineColor,
                             handleSatelliteCoverageColor, handleOrbitProjectionDuration, handleShowTooltip,
-                               handleTileLayerID, handleMapEngine, handleShowGrid, updateBackend, onCancel, defaultSettings, open}) => {
+                               handleTileLayerID, handleMapEngine, handleShowGrid, updateBackend, onCancel, defaultSettings, open,
+                               mapEngineOptions: allowedMapEngineOptions = mapEngineOptions}) => {
 
     const { t } = useTranslation('common');
 
@@ -419,7 +420,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                                 }));
                             }}
                         >
-                            {mapEngineOptions.map((engine) => (
+                            {allowedMapEngineOptions.map((engine) => (
                                 <MenuItem key={engine.id} value={engine.id}>
                                     <Typography variant="body2">{engine.name}</Typography>
                                 </MenuItem>

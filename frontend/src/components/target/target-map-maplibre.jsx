@@ -69,6 +69,8 @@ import {pickTooltipDirection} from '../common/tooltip-orientation.js';
 const storageMapZoomValueKey = 'target-map-zoom-level';
 const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
 const MAPLIBRE_MIN_ZOOM = -6;
+const MAPLIBRE_PROJECTION_MERCATOR = 'mercator';
+const MAPLIBRE_PROJECTION_GLOBE = 'globe';
 const MAPLIBRE_TOOLTIP_DIRECTIONS = Object.freeze(['bottom', 'right', 'left', 'top']);
 const MAPLIBRE_TOOLTIP_DEFAULT_SIZE = Object.freeze({width: 220, height: 48});
 const MAPLIBRE_TOOLTIP_ANCHOR_DISTANCE = 15;
@@ -79,6 +81,13 @@ const MAPLIBRE_LOCK_ON_COVERAGE_PADDING = Object.freeze({
     bottom: 72,
     left: 40,
 });
+const MAPLIBRE_GLOBE_LOCK_ON_COVERAGE_PADDING = Object.freeze({
+    top: 48,
+    right: 48,
+    bottom: 88,
+    left: 48,
+});
+const MAPLIBRE_GLOBE_TRACK_DURATION_MS = 280;
 // MapLibre anchor names describe the popup side attached to the point, so they are inverse
 // of Leaflet's tooltip direction names (which describe where the tooltip appears).
 const MAPLIBRE_ANCHOR_BY_TOOLTIP_DIRECTION = Object.freeze({
@@ -250,11 +259,12 @@ const TargetAttributionBar = React.memo(function TargetAttributionBar({htmlStrin
     );
 });
 
-const TargetMapMapLibreRenderer = () => {
+const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
     const {t} = useTranslation('target');
     const theme = useTheme();
+    const isGlobeProjection = projection === MAPLIBRE_PROJECTION_GLOBE;
     const {
         trackerId,
         lockOnTarget,
@@ -477,6 +487,17 @@ const TargetMapMapLibreRenderer = () => {
     const [tooltipDirection, setTooltipDirection] = useState(MAPLIBRE_TOOLTIP_DIRECTIONS[0]);
 
     useEffect(() => {
+        if (!liveMap || typeof liveMap.setProjection !== 'function') {
+            return;
+        }
+        liveMap.setProjection({type: isGlobeProjection ? MAPLIBRE_PROJECTION_GLOBE : MAPLIBRE_PROJECTION_MERCATOR});
+        if (isGlobeProjection) {
+            liveMap.setPitch?.(0);
+            liveMap.setBearing?.(0);
+        }
+    }, [isGlobeProjection, liveMap]);
+
+    useEffect(() => {
         if (!liveMap || !lockOnTarget) return;
         const lat = Number(satellitePosition?.lat);
         const lon = Number(satellitePosition?.lon);
@@ -492,12 +513,26 @@ const TargetMapMapLibreRenderer = () => {
                 new maplibregl.LngLatBounds([coveragePoints[0][1], coveragePoints[0][0]], [coveragePoints[0][1], coveragePoints[0][0]])
             );
             // Keep a visible margin around the footprint and bias it slightly upward.
-            liveMap.fitBounds(bounds, {padding: MAPLIBRE_LOCK_ON_COVERAGE_PADDING, animate: false});
+            liveMap.fitBounds(bounds, {
+                padding: isGlobeProjection ? MAPLIBRE_GLOBE_LOCK_ON_COVERAGE_PADDING : MAPLIBRE_LOCK_ON_COVERAGE_PADDING,
+                animate: isGlobeProjection,
+                duration: isGlobeProjection ? MAPLIBRE_GLOBE_TRACK_DURATION_MS : 0,
+            });
+            return;
+        }
+
+        if (isGlobeProjection) {
+            liveMap.easeTo({
+                center: [lon, lat],
+                zoom: liveMap.getZoom(),
+                duration: MAPLIBRE_GLOBE_TRACK_DURATION_MS,
+                easing: (timeFraction) => timeFraction,
+            });
             return;
         }
 
         liveMap.flyTo({center: [lon, lat], zoom: liveMap.getZoom(), animate: false});
-    }, [liveMap, lockOnTarget, satelliteCoverage, satellitePosition?.lat, satellitePosition?.lon, showSatelliteCoverage]);
+    }, [isGlobeProjection, liveMap, lockOnTarget, satelliteCoverage, satellitePosition?.lat, satellitePosition?.lon, showSatelliteCoverage]);
 
     const updateTooltipOrientation = useCallback(() => {
         if (!liveMap || !showTooltip || !hasSatellitePosition) return;
@@ -674,6 +709,7 @@ const TargetMapMapLibreRenderer = () => {
                     mapLib={maplibregl}
                     mapStyle={mapStyle}
                     attributionControl={false}
+                    projection={projection}
                     initialViewState={{
                         longitude: hasSatellitePosition ? satelliteLon : 0,
                         latitude: hasSatellitePosition ? satelliteLat : 0,

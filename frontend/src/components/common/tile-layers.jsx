@@ -22,7 +22,8 @@ import L from 'leaflet';
 
 export const MAP_ENGINE_LEAFLET = 'leaflet';
 export const MAP_ENGINE_MAPLIBRE = 'maplibre';
-export const mapEngines = [MAP_ENGINE_LEAFLET, MAP_ENGINE_MAPLIBRE];
+export const MAP_ENGINE_MAPLIBRE_GLOBE = 'maplibre-globe';
+export const mapEngines = [MAP_ENGINE_LEAFLET, MAP_ENGINE_MAPLIBRE, MAP_ENGINE_MAPLIBRE_GLOBE];
 
 export const mapEngineOptions = [
     { id: MAP_ENGINE_LEAFLET, name: 'Leaflet' },
@@ -30,11 +31,23 @@ export const mapEngineOptions = [
 ];
 
 export function normalizeMapEngine(mapEngine) {
-    return mapEngine === MAP_ENGINE_MAPLIBRE ? MAP_ENGINE_MAPLIBRE : MAP_ENGINE_LEAFLET;
+    const normalizedMapEngine = String(mapEngine || '').trim().toLowerCase();
+    if (normalizedMapEngine === MAP_ENGINE_MAPLIBRE || normalizedMapEngine === MAP_ENGINE_MAPLIBRE_GLOBE) {
+        return normalizedMapEngine;
+    }
+    return MAP_ENGINE_LEAFLET;
+}
+
+export function normalizeMapEngineForTileLayers(mapEngine) {
+    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    // Globe mode reuses the same raster tile compatibility matrix as MapLibre 2D.
+    return normalizedMapEngine === MAP_ENGINE_MAPLIBRE_GLOBE
+        ? MAP_ENGINE_MAPLIBRE
+        : normalizedMapEngine;
 }
 
 export function isTileLayerCompatibleWithEngine(layer, mapEngine) {
-    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    const normalizedMapEngine = normalizeMapEngineForTileLayers(mapEngine);
     if (!layer || typeof layer !== 'object') {
         return false;
     }
@@ -46,7 +59,7 @@ export function isTileLayerCompatibleWithEngine(layer, mapEngine) {
 }
 
 export function getTileLayersForEngine(mapEngine) {
-    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    const normalizedMapEngine = normalizeMapEngineForTileLayers(mapEngine);
     return tileLayers.filter((layer) => isTileLayerCompatibleWithEngine(layer, normalizedMapEngine));
 }
 
@@ -185,7 +198,7 @@ export const tileLayers = [
  * @returns {Object|null} - The tile layer object if found, otherwise null.
  */
 export function getTileLayerById(id, options = {}) {
-    const mapEngine = normalizeMapEngine(options.mapEngine);
+    const mapEngine = normalizeMapEngineForTileLayers(options.mapEngine);
     const compatibleLayerId = resolveCompatibleTileLayerId(id, mapEngine);
     const baseLayer = tileLayers.find(layer => layer.id === compatibleLayerId);
     const fallbackLayerId = resolveCompatibleTileLayerId('satellite', mapEngine);

@@ -44,6 +44,17 @@ import {
     setOpenMapSettingsDialog,
     setShowGrid,
 } from "./target-slice.jsx";
+import {
+    MAP_ENGINE_LEAFLET,
+    MAP_ENGINE_MAPLIBRE,
+    MAP_ENGINE_MAPLIBRE_GLOBE,
+} from "../common/tile-layers.jsx";
+
+const TARGET_MAP_ENGINE_OPTIONS = [
+    {id: MAP_ENGINE_LEAFLET, name: 'Leaflet'},
+    {id: MAP_ENGINE_MAPLIBRE, name: 'MapLibre (beta)'},
+    {id: MAP_ENGINE_MAPLIBRE_GLOBE, name: 'MapLibre Globe (beta)'},
+];
 
 function MapSettingsIslandDialog({updateBackend}) {
     const dispatch = useDispatch();
@@ -124,6 +135,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                         initialShowTooltip={showTooltip}
                         initialShowGrid={showGrid}
                         initialShowTerminatorLine={showTerminatorLine}
+                        mapEngineOptions={TARGET_MAP_ENGINE_OPTIONS}
                         defaultSettings={{
                             lockOnTarget: true,
                             showPastOrbitPath: true,

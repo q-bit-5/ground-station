@@ -22,12 +22,20 @@ import {normalizeMapEngine} from "../common/tile-layers.jsx";
 import {normalizeTargetType} from './celestial-target-utils.js';
 import LeafletTargetMapRenderer from './target-map-leaflet.jsx';
 import TargetMapMapLibreRenderer from './target-map-maplibre.jsx';
+import TargetMapMapLibreGlobeRenderer from './target-map-maplibreglobe.jsx';
+
+const MAP_ENGINE_MAPLIBRE_GLOBE = 'maplibre-globe';
 
 const TargetMapContainer = () => {
     const mapEngine = useSelector((state) => state.targetSatTrack?.mapEngine);
     const trackingState = useSelector((state) => state.targetSatTrack?.trackingState || {});
     const normalizedMapEngine = normalizeMapEngine(mapEngine);
     const targetType = normalizeTargetType(trackingState);
+
+    // Globe renderer is intentionally satellite-target-only on the Target page.
+    if (mapEngine === MAP_ENGINE_MAPLIBRE_GLOBE && targetType === 'satellite') {
+        return <TargetMapMapLibreGlobeRenderer/>;
+    }
 
     if (normalizedMapEngine === 'maplibre' && targetType === 'satellite') {
         return <TargetMapMapLibreRenderer/>;

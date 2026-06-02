@@ -37,6 +37,7 @@ import {
 
 const MAP_ENGINE_LEAFLET = 'leaflet';
 const MAP_ENGINE_MAPLIBRE = 'maplibre';
+const MAP_ENGINE_MAPLIBRE_GLOBE = 'maplibre-globe';
 const LEAFLET_MIN_ZOOM = 0;
 const MAPLIBRE_MIN_ZOOM = -6;
 const MAP_MAX_ZOOM = 10;
@@ -47,12 +48,26 @@ const MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS = new Set([
     'nasa_osm_land_water_map_4326',
 ]);
 
-const normalizeMapEngine = (mapEngine) => (
-    mapEngine === MAP_ENGINE_MAPLIBRE ? MAP_ENGINE_MAPLIBRE : MAP_ENGINE_LEAFLET
+const normalizeMapEngine = (mapEngine) => {
+    const normalizedMapEngine = String(mapEngine || '').trim().toLowerCase();
+    if (normalizedMapEngine === MAP_ENGINE_MAPLIBRE || normalizedMapEngine === MAP_ENGINE_MAPLIBRE_GLOBE) {
+        return normalizedMapEngine;
+    }
+    return MAP_ENGINE_LEAFLET;
+};
+
+const isMapLibreEngine = (mapEngine) => {
+    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    return normalizedMapEngine === MAP_ENGINE_MAPLIBRE || normalizedMapEngine === MAP_ENGINE_MAPLIBRE_GLOBE;
+};
+
+const toZoomFamilyMapEngine = (mapEngine) => (
+    // MapLibre 2D and globe share the same zoom domain, so only Leaflet needs conversion offset.
+    isMapLibreEngine(mapEngine) ? MAP_ENGINE_MAPLIBRE : MAP_ENGINE_LEAFLET
 );
 
 const getMinZoomForEngine = (mapEngine) => (
-    normalizeMapEngine(mapEngine) === MAP_ENGINE_MAPLIBRE ? MAPLIBRE_MIN_ZOOM : LEAFLET_MIN_ZOOM
+    isMapLibreEngine(mapEngine) ? MAPLIBRE_MIN_ZOOM : LEAFLET_MIN_ZOOM
 );
 
 const clampMapZoomForEngine = (zoomLevel, mapEngine) => {
@@ -67,15 +82,17 @@ const clampMapZoomForEngine = (zoomLevel, mapEngine) => {
 const convertMapZoomForEngine = (zoomLevel, fromEngine, toEngine) => {
     const normalizedFrom = normalizeMapEngine(fromEngine);
     const normalizedTo = normalizeMapEngine(toEngine);
-    if (normalizedFrom === normalizedTo) {
+    const zoomFamilyFrom = toZoomFamilyMapEngine(normalizedFrom);
+    const zoomFamilyTo = toZoomFamilyMapEngine(normalizedTo);
+    if (zoomFamilyFrom === zoomFamilyTo) {
         return clampMapZoomForEngine(zoomLevel, normalizedTo);
     }
 
     const normalizedZoom = clampMapZoomForEngine(zoomLevel, normalizedFrom);
-    if (normalizedFrom === MAP_ENGINE_MAPLIBRE && normalizedTo === MAP_ENGINE_LEAFLET) {
+    if (zoomFamilyFrom === MAP_ENGINE_MAPLIBRE && zoomFamilyTo === MAP_ENGINE_LEAFLET) {
         return clampMapZoomForEngine(normalizedZoom + MAPLIBRE_TO_LEAFLET_ZOOM_OFFSET, normalizedTo);
     }
-    if (normalizedFrom === MAP_ENGINE_LEAFLET && normalizedTo === MAP_ENGINE_MAPLIBRE) {
+    if (zoomFamilyFrom === MAP_ENGINE_LEAFLET && zoomFamilyTo === MAP_ENGINE_MAPLIBRE) {
         return clampMapZoomForEngine(normalizedZoom - MAPLIBRE_TO_LEAFLET_ZOOM_OFFSET, normalizedTo);
     }
     return normalizedZoom;
@@ -84,7 +101,7 @@ const convertMapZoomForEngine = (zoomLevel, fromEngine, toEngine) => {
 const resolveCompatibleTileLayerId = (tileLayerID, mapEngine) => {
     const normalizedMapEngine = normalizeMapEngine(mapEngine);
     const normalizedTileLayerID = String(tileLayerID || 'satellite');
-    if (normalizedMapEngine === MAP_ENGINE_MAPLIBRE && MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS.has(normalizedTileLayerID)) {
+    if (isMapLibreEngine(normalizedMapEngine) && MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS.has(normalizedTileLayerID)) {
         return 'satellite';
     }
     return normalizedTileLayerID;
