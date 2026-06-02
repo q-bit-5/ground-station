@@ -151,6 +151,14 @@ function areSatellitesEquivalent(prev = [], next = []) {
     return true;
 }
 
+const OverviewAttributionBar = React.memo(function OverviewAttributionBar({htmlString}) {
+    return (
+        <MapStatusBar>
+            <SimpleTruncatedHtml className={'attribution'} htmlString={htmlString}/>
+        </MapStatusBar>
+    );
+});
+
 const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
@@ -201,6 +209,10 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const selectedTileLayer = useMemo(
         () => getTileLayerById(tileLayerID, {mapEngine: normalizedMapEngine}),
         [normalizedMapEngine, tileLayerID]
+    );
+    const attributionHtml = useMemo(
+        () => `<a href="https://maplibre.org/" title="Open source map rendering" target="_blank" rel="noopener noreferrer">MapLibre</a> | ${selectedTileLayer.attribution}`,
+        [selectedTileLayer.attribution]
     );
     const selectedTileURL = useMemo(
         () => getMapLibreTileURL(tileLayerID, {mapEngine: normalizedMapEngine}),
@@ -992,14 +1004,8 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 <div ref={arrowControlsRef}>
                     {liveMap ? <MapArrowControls mapObject={liveMap} verticalOffset={25}/> : null}
                 </div>
-
-                <MapStatusBar>
-                    <SimpleTruncatedHtml
-                        className={'attribution'}
-                        htmlString={`<a href="https://maplibre.org/" title="Open source map rendering" target="_blank" rel="noopener noreferrer">MapLibre</a> | ${selectedTileLayer.attribution}`}
-                    />
-                </MapStatusBar>
             </Box>
+            <OverviewAttributionBar htmlString={attributionHtml}/>
         </Box>
     );
 };

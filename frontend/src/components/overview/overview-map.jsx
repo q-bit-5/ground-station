@@ -185,6 +185,14 @@ const ZoomOutButton = React.memo(function ZoomOutButton() {
     );
 });
 
+const OverviewAttributionBar = React.memo(function OverviewAttributionBar({ htmlString }) {
+    return (
+        <MapStatusBar>
+            <SimpleTruncatedHtml className={'attribution'} htmlString={htmlString}/>
+        </MapStatusBar>
+    );
+});
+
 function areSatellitesEquivalent(prev = [], next = []) {
     if (prev === next) return true;
     if (!Array.isArray(prev) || !Array.isArray(next)) return false;
@@ -238,6 +246,10 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const selectedTileLayer = useMemo(
         () => getTileLayerById(tileLayerID, { mapEngine: normalizedMapEngine }),
         [normalizedMapEngine, tileLayerID]
+    );
+    const attributionHtml = useMemo(
+        () => `<a href="https://leafletjs.com" title="A JavaScript library for interactive maps" target="_blank" rel="noopener noreferrer">Leaflet</a> | ${selectedTileLayer.attribution}`,
+        [selectedTileLayer.attribution]
     );
     const mapCrs = useMemo(
         () => getMapCrsByTileLayerId(tileLayerID, { mapEngine: normalizedMapEngine }),
@@ -996,13 +1008,8 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 {/*    selectedSatellite={selectedSatellites.find((sat) => sat.norad_id === selectedSatelliteId)}*/}
                 {/*    handleSetTrackingOnBackend={handleSetTrackingOnBackend}*/}
                 {/*/>*/}
-                    <MapStatusBar>
-                        <SimpleTruncatedHtml
-                            className={'attribution'}
-                            htmlString={`<a href="https://leafletjs.com" title="A JavaScript library for interactive maps" target="_blank" rel="noopener noreferrer">Leaflet</a> | ${selectedTileLayer.attribution}`}
-                        />
-                    </MapStatusBar>
                 </MapContainer>
+                <OverviewAttributionBar htmlString={attributionHtml}/>
             </Box>
         </Box>
     );
