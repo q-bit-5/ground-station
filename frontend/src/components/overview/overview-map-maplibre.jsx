@@ -358,6 +358,10 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
         [dispatch]
     );
 
+    // Keep map zoom levels (including negative zoom) as requested by user controls.
+    // Default MapLibre constrain logic can force zoom-in when world copies are disabled.
+    const preserveRequestedZoomConstrain = useCallback((center, zoom) => ({center, zoom}), []);
+
     const satelliteUpdate = useCallback((now) => {
         if (!location || location.lat == null || location.lon == null) {
             return;
@@ -787,6 +791,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     doubleClickZoom={false}
                     keyboard={false}
                     renderWorldCopies={false}
+                    transformConstrain={preserveRequestedZoomConstrain}
                     minZoom={MAPLIBRE_MIN_ZOOM}
                     maxZoom={10}
                     onZoomEnd={(event) => handleSetMapZoomLevel(event?.viewState?.zoom ?? mapZoomLevel)}
