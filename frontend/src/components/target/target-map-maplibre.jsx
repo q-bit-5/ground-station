@@ -954,27 +954,47 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
                             <FollowTargetModeButton lockOnTarget={lockOnTarget} onToggle={handleToggleLockOnTarget}/>
                         </span>
                     </Tooltip>
-                    <Fab size="small" color="primary" aria-label={t('map_controls.go_home')} onClick={handleCenterHome} disabled={!location}>
-                        <HomeIcon/>
-                    </Fab>
-                    <Fab size="small" color="primary" aria-label={t('map_controls.go_to_center')} onClick={handleCenterMap}>
-                        <FilterCenterFocusIcon/>
-                    </Fab>
-                    <Fab size="small" color="primary" aria-label={t('map_controls.go_fullscreen')} onClick={handleFullscreen}>
-                        <FullscreenIcon/>
-                    </Fab>
+                    <Tooltip title={t('map_controls.go_home', {defaultValue: 'Go home'})}>
+                        <span>
+                            <Fab size="small" color="primary" aria-label={t('map_controls.go_home')} onClick={handleCenterHome} disabled={!location}>
+                                <HomeIcon/>
+                            </Fab>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title={t('map_controls.go_to_center', {defaultValue: 'Go to center'})}>
+                        <span>
+                            <Fab size="small" color="primary" aria-label={t('map_controls.go_to_center')} onClick={handleCenterMap}>
+                                <FilterCenterFocusIcon/>
+                            </Fab>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title={t('map_controls.go_fullscreen', {defaultValue: 'Go fullscreen'})}>
+                        <span>
+                            <Fab size="small" color="primary" aria-label={t('map_controls.go_fullscreen')} onClick={handleFullscreen}>
+                                <FullscreenIcon/>
+                            </Fab>
+                        </span>
+                    </Tooltip>
                 </Box>
 
                 <Box
                     sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
                     style={{left: 5, top: 5, position: 'absolute'}}
                 >
-                    <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleZoomIn}>
-                        <ZoomInIcon/>
-                    </Fab>
-                    <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleZoomOut}>
-                        <ZoomOutIcon/>
-                    </Fab>
+                    <Tooltip title={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})}>
+                        <span>
+                            <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleZoomIn}>
+                                <ZoomInIcon/>
+                            </Fab>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})}>
+                        <span>
+                            <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleZoomOut}>
+                                <ZoomOutIcon/>
+                            </Fab>
+                        </span>
+                    </Tooltip>
                 </Box>
 
                 <MapSettingsIslandDialog updateBackend={() => {
