@@ -432,12 +432,14 @@ class TestGetSatellitePath:
             if result["past"][0]:
                 assert "lat" in result["past"][0][0]
                 assert "lon" in result["past"][0][0]
+                assert "alt" in result["past"][0][0]
 
         if result["future"]:
             assert isinstance(result["future"][0], list)
             if result["future"][0]:
                 assert "lat" in result["future"][0][0]
                 assert "lon" in result["future"][0][0]
+                assert "alt" in result["future"][0][0]
 
     def test_path_duration(self, iss_tle_two_lines):
         """Test path with different durations."""
@@ -469,6 +471,7 @@ class TestGetSatellitePath:
             for point in segment:
                 assert -90 <= point["lat"] <= 90
                 assert -180 <= point["lon"] <= 180
+                assert point["alt"] >= 0
 
     def test_path_invalid_tle_length(self):
         """Test that invalid TLE length is handled."""

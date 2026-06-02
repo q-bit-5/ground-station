@@ -147,6 +147,7 @@ class CacheManager:
 
 # Global cache manager instance
 cache_manager = CacheManager()
+SATELLITE_PATHS_CACHE_SCHEMA_VERSION = 2
 
 
 def get_cached_satellite_paths(
@@ -162,7 +163,12 @@ def get_cached_satellite_paths(
     :return: Cached paths or None if not available
     """
     cache_key = cache_manager._generate_cache_key(
-        "satellite_paths", tle1=tle1, tle2=tle2, duration=duration_minutes, step=step_minutes
+        "satellite_paths",
+        tle1=tle1,
+        tle2=tle2,
+        duration=duration_minutes,
+        step=step_minutes,
+        schema=SATELLITE_PATHS_CACHE_SCHEMA_VERSION,
     )
 
     return cache_manager.get(cache_key)
@@ -187,7 +193,12 @@ def cache_satellite_paths(
     :param ttl_minutes: Time to live in minutes (default: 30)
     """
     cache_key = cache_manager._generate_cache_key(
-        "satellite_paths", tle1=tle1, tle2=tle2, duration=duration_minutes, step=step_minutes
+        "satellite_paths",
+        tle1=tle1,
+        tle2=tle2,
+        duration=duration_minutes,
+        step=step_minutes,
+        schema=SATELLITE_PATHS_CACHE_SCHEMA_VERSION,
     )
 
     cache_manager.set(cache_key, paths, ttl_minutes)

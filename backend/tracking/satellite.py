@@ -127,8 +127,8 @@ def get_satellite_path(
     Returns:
         An object with two properties:
         {
-            'past': [[{lat, lon}], ...],
-            'future': [[{lat, lon}], ...]
+            'past': [[{lat, lon, alt}], ...],
+            'future': [[{lat, lon, alt}], ...]
         }
         Each segment is a list of coordinate points that don't cross the dateline
     """
@@ -169,8 +169,9 @@ def get_satellite_path(
 
             lat = float(subpoint.latitude.degrees)
             lon = normalize_longitude(float(subpoint.longitude.degrees))
+            alt = float(subpoint.elevation.m)
 
-            past_points.append({"lat": lat, "lon": lon})
+            past_points.append({"lat": lat, "lon": lon, "alt": alt})
             current += step_td
 
         # Compute future points: from now up to (now + durationMinutes) (inclusive)
@@ -192,8 +193,9 @@ def get_satellite_path(
 
             lat = float(subpoint.latitude.degrees)
             lon = normalize_longitude(float(subpoint.longitude.degrees))
+            alt = float(subpoint.elevation.m)
 
-            future_points.append({"lat": lat, "lon": lon})
+            future_points.append({"lat": lat, "lon": lon, "alt": alt})
             current += step_td
 
         # Split the past and future arrays into segments to avoid drawing lines across the dateline
