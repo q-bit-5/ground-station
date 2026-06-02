@@ -39,6 +39,7 @@ import {
     setShowSunIcon,
     setShowTerminatorLine,
     setShowTooltip,
+    setMapEngine,
     setTileLayerID,
     setOpenMapSettingsDialog,
     setShowGrid,
@@ -61,6 +62,7 @@ function MapSettingsIslandDialog({updateBackend}) {
         satelliteCoverageColor,
         orbitProjectionDuration,
         tileLayerID,
+        mapEngine,
         openMapSettingsDialog,
         showGrid,
     } = useSelector(state => state.targetSatTrack);
@@ -118,6 +120,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                         initialSatelliteCoverageColor={satelliteCoverageColor}
                         initialOrbitProjectionDuration={orbitProjectionDuration}
                         initialTileLayerID={tileLayerID}
+                        initialMapEngine={mapEngine}
                         initialShowTooltip={showTooltip}
                         initialShowGrid={showGrid}
                         initialShowTerminatorLine={showTerminatorLine}
@@ -136,6 +139,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                             satelliteCoverageColor: '#112EED',
                             orbitProjectionDuration: 60 * 24,
                             tileLayerID: 'satellite',
+                            mapEngine: 'leaflet',
                         }}
                         handleLockOnTarget={(value)=>{dispatch(setLockOnTarget(value))}}
                         handleShowPastOrbitPath={(value)=>{dispatch(setShowPastOrbitPath(value))}}
@@ -149,6 +153,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                         handleSatelliteCoverageColor={(value)=>{dispatch(setSatelliteCoverageColor(value))}}
                         handleOrbitProjectionDuration={(value)=>{dispatch(setOrbitProjectionDuration(value))}}
                         handleShowTooltip={(value)=>{dispatch(setShowTooltip(value))}}
+                        handleMapEngine={(value)=>{dispatch(setMapEngine(value))}}
                         handleTileLayerID={(value)=>{dispatch(setTileLayerID(value))}}
                         handleShowGrid={(value)=>{dispatch(setShowGrid(value))}}
                         onCancel={handleCloseDialog}

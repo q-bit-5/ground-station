@@ -23,6 +23,7 @@ import {Responsive, useContainerWidth} from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import 'leaflet/dist/leaflet.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import {absoluteStrategy} from 'react-grid-layout/core';
 import {duration, styled} from "@mui/material/styles";
 import OverviewSatelliteGroupSelector from "./satellite-selector.jsx";

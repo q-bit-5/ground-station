@@ -35,6 +35,27 @@ import {
     setTrackerInstances,
 } from './tracker-instances-slice.jsx';
 
+const MAP_ENGINE_LEAFLET = 'leaflet';
+const MAP_ENGINE_MAPLIBRE = 'maplibre';
+const MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS = new Set([
+    'nasa_blue_marble_4326',
+    'nasa_osm_land_mask_4326',
+    'nasa_osm_land_water_map_4326',
+]);
+
+const normalizeMapEngine = (mapEngine) => (
+    mapEngine === MAP_ENGINE_MAPLIBRE ? MAP_ENGINE_MAPLIBRE : MAP_ENGINE_LEAFLET
+);
+
+const resolveCompatibleTileLayerId = (tileLayerID, mapEngine) => {
+    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    const normalizedTileLayerID = String(tileLayerID || 'satellite');
+    if (normalizedMapEngine === MAP_ENGINE_MAPLIBRE && MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS.has(normalizedTileLayerID)) {
+        return 'satellite';
+    }
+    return normalizedTileLayerID;
+};
+
 const normalizeSource = (source) => {
     if (typeof source !== 'string') {
         return 'manual';
@@ -344,6 +365,7 @@ export const setTargetMapSetting = createAsyncThunk(
             satelliteCoverageColor: state['targetSatTrack']['satelliteCoverageColor'],
             orbitProjectionDuration: state['targetSatTrack']['orbitProjectionDuration'],
             tileLayerID: state['targetSatTrack']['tileLayerID'],
+            mapEngine: state['targetSatTrack']['mapEngine'],
         };
 
         return await new Promise((resolve, reject) => {
@@ -708,6 +730,7 @@ const targetSatTrackSlice = createSlice({
         satelliteCoverageColor: '#112eed',
         orbitProjectionDuration: 60*24,
         tileLayerID: 'satellite',
+        mapEngine: 'leaflet',
         mapZoomLevel: 2,
         sunPos: null,
         moonPos: null,
@@ -1078,8 +1101,12 @@ const targetSatTrackSlice = createSlice({
         setOrbitProjectionDuration(state, action) {
             state.orbitProjectionDuration = action.payload;
         },
+        setMapEngine(state, action) {
+            state.mapEngine = normalizeMapEngine(action.payload);
+            state.tileLayerID = resolveCompatibleTileLayerId(state.tileLayerID, state.mapEngine);
+        },
         setTileLayerID(state, action) {
-            state.tileLayerID = action.payload;
+            state.tileLayerID = resolveCompatibleTileLayerId(action.payload, state.mapEngine);
         },
         setMapZoomLevel(state, action) {
             state.mapZoomLevel = action.payload;
@@ -1620,8 +1647,10 @@ const targetSatTrackSlice = createSlice({
                 state.loading = false;
                 // Handle null/undefined payload for first-time users
                 if (action.payload) {
+                    const mapEngine = normalizeMapEngine(action.payload['mapEngine']);
+                    state.mapEngine = mapEngine;
                     state.lockOnTarget = action.payload['lockOnTarget'] ?? true;
-                    state.tileLayerID = action.payload['tileLayerID'];
+                    state.tileLayerID = resolveCompatibleTileLayerId(action.payload['tileLayerID'], mapEngine);
                     state.showPastOrbitPath = action.payload['showPastOrbitPath'];
                     state.showFutureOrbitPath = action.payload['showFutureOrbitPath'];
                     state.showSatelliteCoverage = action.payload['showSatelliteCoverage'];
@@ -1675,6 +1704,7 @@ export const {
     setFutureOrbitLineColor,
     setSatelliteCoverageColor,
     setOrbitProjectionDuration,
+    setMapEngine,
     setTileLayerID,
     setMapZoomLevel,
     setSunPos,

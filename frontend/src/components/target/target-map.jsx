@@ -36,6 +36,8 @@ import {SatelliteAlt} from '@mui/icons-material';
 import HomeIcon from '@mui/icons-material/Home';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import PanToolAltIcon from '@mui/icons-material/PanToolAlt';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -64,7 +66,7 @@ import {
     setLockOnTarget,
     setTargetMapSetting,
 } from './target-slice.jsx';
-import {getMapCrsByTileLayerId, getTileLayerById} from "../common/tile-layers.jsx";
+import {getMapCrsByTileLayerId, getTileLayerById, normalizeMapEngine} from "../common/tile-layers.jsx";
 import {homeIcon, sunIcon, moonIcon, satelliteIcon2} from '../common/dataurl-icons.jsx';
 import {
     TitleBar,
@@ -105,6 +107,7 @@ import {
     normalizeTargetType,
     resolveTargetDisplayName,
 } from './celestial-target-utils.js';
+import TargetMapMapLibreRenderer from './target-map-maplibre.jsx';
 
 const storageMapZoomValueKey = "target-map-zoom-level";
 const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
@@ -355,6 +358,36 @@ const FullscreenMapButton = React.memo(function FullscreenMapButton() {
     );
 });
 
+const ZoomInButton = React.memo(function ZoomInButton() {
+    const { t } = useTranslation('target');
+
+    const handleClick = () => {
+        if (!MapObject) return;
+        MapObject.zoomIn(0.25);
+    };
+
+    return (
+        <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleClick}>
+            <ZoomInIcon/>
+        </Fab>
+    );
+});
+
+const ZoomOutButton = React.memo(function ZoomOutButton() {
+    const { t } = useTranslation('target');
+
+    const handleClick = () => {
+        if (!MapObject) return;
+        MapObject.zoomOut(0.25);
+    };
+
+    return (
+        <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleClick}>
+            <ZoomOutIcon/>
+        </Fab>
+    );
+});
+
 const FollowTargetModeButton = React.memo(function FollowTargetModeButton({ lockOnTarget, onToggle }) {
     const { t } = useTranslation('target');
     const tooltipTitle = lockOnTarget
@@ -373,7 +406,15 @@ const FollowTargetModeButton = React.memo(function FollowTargetModeButton({ lock
     );
 });
 
-const TargetMapContainer = ({}) => {
+const TargetAttributionBar = React.memo(function TargetAttributionBar({ htmlString }) {
+    return (
+        <MapStatusBar>
+            <SimpleTruncatedHtml className={"attribution"} htmlString={htmlString}/>
+        </MapStatusBar>
+    );
+});
+
+const LeafletTargetMapRenderer = ({}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
     const { t } = useTranslation('target');
@@ -397,6 +438,7 @@ const TargetMapContainer = ({}) => {
         satelliteCoverageColor,
         orbitProjectionDuration,
         tileLayerID,
+        mapEngine,
         mapZoomLevel,
         nextPassesHours,
         sunPos,
@@ -422,13 +464,21 @@ const TargetMapContainer = ({}) => {
         }
         return null;
     }, [trackerId, trackerInstances]);
+    const normalizedMapEngine = useMemo(
+        () => normalizeMapEngine(mapEngine),
+        [mapEngine]
+    );
     const selectedTileLayer = useMemo(
-        () => getTileLayerById(tileLayerID),
-        [tileLayerID]
+        () => getTileLayerById(tileLayerID, { mapEngine: normalizedMapEngine }),
+        [normalizedMapEngine, tileLayerID]
+    );
+    const attributionHtml = useMemo(
+        () => `<a href="https://leafletjs.com" title="A JavaScript library for interactive maps" target="_blank" rel="noopener noreferrer">Leaflet</a> | ${selectedTileLayer.attribution}`,
+        [selectedTileLayer.attribution]
     );
     const mapCrs = useMemo(
-        () => getMapCrsByTileLayerId(tileLayerID),
-        [tileLayerID]
+        () => getMapCrsByTileLayerId(tileLayerID, { mapEngine: normalizedMapEngine }),
+        [normalizedMapEngine, tileLayerID]
     );
 
     const satellitePosition = useSelector(satellitePositionSelector);
@@ -970,7 +1020,7 @@ const TargetMapContainer = ({}) => {
             <Box sx={{ width: '100%', flex: 1, minHeight: 0, position: 'relative' }}>
                 {/* Leaflet CRS is immutable after map init, so remount when projection changes. */}
                 <MapContainer
-                    key={`target-map-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
+                    key={`target-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
                     className="target-map"
                     center={satellitePosition?.lat && satellitePosition?.lon ? [satellitePosition.lat, satellitePosition.lon] : [0, 0]}
                     crs={mapCrs}
@@ -983,6 +1033,7 @@ const TargetMapContainer = ({}) => {
                     whenReady={handleWhenReady}
                     zoomSnap={0.25}
                     zoomDelta={0.25}
+                    zoomControl={false}
                     keyboard={false}
                     bounceAtZoomLimits={false}
                     closePopupOnClick={false}
@@ -1011,6 +1062,14 @@ const TargetMapContainer = ({}) => {
                     <CenterHomeButton/>
                     <CenterMapButton/>
                     <FullscreenMapButton/>
+                </Box>
+
+                <Box
+                    sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
+                    style={{left: 5, top: 5, position: 'absolute'}}
+                >
+                    <ZoomInButton/>
+                    <ZoomOutButton/>
                 </Box>
 
                 <MapSettingsIslandDialog updateBackend={() => {
@@ -1078,16 +1137,24 @@ const TargetMapContainer = ({}) => {
                         showLabels={false}
                     />
                 )}
-                    <MapStatusBar>
-                        <SimpleTruncatedHtml
-                            className={"attribution"}
-                            htmlString={`<a href="https://leafletjs.com" title="A JavaScript library for interactive maps" target="_blank" rel="noopener noreferrer">Leaflet</a> | ${selectedTileLayer.attribution}`}
-                        />
-                    </MapStatusBar>
                 </MapContainer>
+                <TargetAttributionBar htmlString={attributionHtml}/>
             </Box>
         </Box>
     );
+};
+
+const TargetMapContainer = () => {
+    const mapEngine = useSelector((state) => state.targetSatTrack?.mapEngine);
+    const trackingState = useSelector((state) => state.targetSatTrack?.trackingState || {});
+    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    const targetType = normalizeTargetType(trackingState);
+
+    if (normalizedMapEngine === 'maplibre' && targetType === 'satellite') {
+        return <TargetMapMapLibreRenderer/>;
+    }
+
+    return <LeafletTargetMapRenderer/>;
 };
 
 export default TargetMapContainer;

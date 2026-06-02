@@ -31,7 +31,7 @@ import {
     setShowFutureOrbitPath, setShowMoonIcon,
     setShowPastOrbitPath,
     setShowSatelliteCoverage,
-    setShowSunIcon, setShowTerminatorLine, setShowTooltip, setTileLayerID,
+    setShowSunIcon, setShowTerminatorLine, setShowTooltip, setTileLayerID, setMapEngine,
     setOpenMapSettingsDialog,
     setShowGrid,
 } from "./overview-slice.jsx";
@@ -53,6 +53,7 @@ function MapSettingsIslandDialog({updateBackend}) {
         satelliteCoverageColor,
         orbitProjectionDuration,
         tileLayerID,
+        mapEngine,
         openMapSettingsDialog,
     } = useSelector(state => state.overviewSatTrack);
 
@@ -108,6 +109,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                         initialSatelliteCoverageColor={satelliteCoverageColor}
                         initialOrbitProjectionDuration={orbitProjectionDuration}
                         initialTileLayerID={tileLayerID}
+                        initialMapEngine={mapEngine}
                         initialShowTooltip={showTooltip}
                         initialShowTerminatorLine={showTerminatorLine}
                         initialShowGrid={showGrid}
@@ -125,6 +127,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                             satelliteCoverageColor: '#FFFFFF',
                             orbitProjectionDuration: 240,
                             tileLayerID: 'satellite',
+                            mapEngine: 'leaflet',
                         }}
                         handleShowPastOrbitPath={(value)=>{dispatch(setShowPastOrbitPath(value))}}
                         handleShowFutureOrbitPath={(value)=>{dispatch(setShowFutureOrbitPath(value))}}
@@ -138,6 +141,7 @@ function MapSettingsIslandDialog({updateBackend}) {
                         handleOrbitProjectionDuration={(value)=>{dispatch(setOrbitProjectionDuration(value))}}
                         handleShowTooltip={(value)=>{dispatch(setShowTooltip(value))}}
                         handleShowGrid={(value)=>{dispatch(setShowGrid(value))}}
+                        handleMapEngine={(value)=>{dispatch(setMapEngine(value))}}
                         handleTileLayerID={(value)=>{dispatch(setTileLayerID(value))}}
                         onCancel={handleCloseDialog}
                         updateBackend={updateBackend}

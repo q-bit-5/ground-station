@@ -33,7 +33,13 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import {getTileLayerById, tileLayers} from './tile-layers.jsx';
+import {
+    getTileLayerById,
+    getTileLayersForEngine,
+    mapEngineOptions,
+    normalizeMapEngine,
+    resolveCompatibleTileLayerId,
+} from './tile-layers.jsx';
 import { useTranslation } from 'react-i18next';
 
 const SETTINGS_KEYS = [
@@ -50,6 +56,7 @@ const SETTINGS_KEYS = [
     'satelliteCoverageColor',
     'orbitProjectionDuration',
     'tileLayerID',
+    'mapEngine',
 ];
 
 const isHexColor = (value) => /^#[0-9A-Fa-f]{6}$/.test(String(value || ''));
@@ -81,24 +88,30 @@ const buildSettings = ({
     initialFutureOrbitLineColor,
     initialOrbitProjectionDuration,
     initialTileLayerID,
+    initialMapEngine,
     initialShowTooltip,
     initialShowGrid,
-}) => ({
-    lockOnTarget: Boolean(initialLockOnTarget),
-    showPastOrbitPath: Boolean(initialShowPastOrbitPath),
-    showFutureOrbitPath: Boolean(initialShowFutureOrbitPath),
-    showSatelliteCoverage: Boolean(initialShowSatelliteCoverage),
-    showSunIcon: Boolean(initialShowSunIcon),
-    showMoonIcon: Boolean(initialShowMoonIcon),
-    showTerminatorLine: Boolean(initialShowTerminatorLine),
-    showTooltip: Boolean(initialShowTooltip),
-    showGrid: Boolean(initialShowGrid),
-    pastOrbitLineColor: normalizeHexColor(initialPastOrbitLineColor, '#33C833'),
-    futureOrbitLineColor: normalizeHexColor(initialFutureOrbitLineColor, '#E4971E'),
-    satelliteCoverageColor: normalizeHexColor(initialSatelliteCoverageColor, '#FFFFFF'),
-    orbitProjectionDuration: Number(initialOrbitProjectionDuration) || 240,
-    tileLayerID: initialTileLayerID || 'satellite',
-});
+}) => {
+    const mapEngine = normalizeMapEngine(initialMapEngine);
+    const tileLayerID = resolveCompatibleTileLayerId(initialTileLayerID, mapEngine);
+    return {
+        lockOnTarget: Boolean(initialLockOnTarget),
+        showPastOrbitPath: Boolean(initialShowPastOrbitPath),
+        showFutureOrbitPath: Boolean(initialShowFutureOrbitPath),
+        showSatelliteCoverage: Boolean(initialShowSatelliteCoverage),
+        showSunIcon: Boolean(initialShowSunIcon),
+        showMoonIcon: Boolean(initialShowMoonIcon),
+        showTerminatorLine: Boolean(initialShowTerminatorLine),
+        showTooltip: Boolean(initialShowTooltip),
+        showGrid: Boolean(initialShowGrid),
+        pastOrbitLineColor: normalizeHexColor(initialPastOrbitLineColor, '#33C833'),
+        futureOrbitLineColor: normalizeHexColor(initialFutureOrbitLineColor, '#E4971E'),
+        satelliteCoverageColor: normalizeHexColor(initialSatelliteCoverageColor, '#FFFFFF'),
+        orbitProjectionDuration: Number(initialOrbitProjectionDuration) || 240,
+        tileLayerID,
+        mapEngine,
+    };
+};
 
 const settingsEqual = (left, right, keys = SETTINGS_KEYS) => keys.every((key) => left[key] === right[key]);
 
@@ -202,12 +215,12 @@ const ColorSetting = ({ label, value, disabled = false, onChange }) => {
 const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, initialShowFutureOrbitPath, initialShowSatelliteCoverage,
                             initialShowSunIcon, initialShowMoonIcon, initialShowTerminatorLine,
                             initialSatelliteCoverageColor, initialPastOrbitLineColor, initialFutureOrbitLineColor,
-                            initialOrbitProjectionDuration, initialTileLayerID, initialShowTooltip, initialShowGrid,
+                            initialOrbitProjectionDuration, initialTileLayerID, initialMapEngine, initialShowTooltip, initialShowGrid,
                                handleLockOnTarget, handleShowFutureOrbitPath, handleShowPastOrbitPath,
                             handleShowSatelliteCoverage, handleSetShowSunIcon, handleSetShowMoonIcon,
                             handleShowTerminatorLine, handleFutureOrbitLineColor, handlePastOrbitLineColor,
                             handleSatelliteCoverageColor, handleOrbitProjectionDuration, handleShowTooltip,
-                               handleTileLayerID, handleShowGrid, updateBackend, onCancel, defaultSettings, open}) => {
+                               handleTileLayerID, handleMapEngine, handleShowGrid, updateBackend, onCancel, defaultSettings, open}) => {
 
     const { t } = useTranslation('common');
 
@@ -247,6 +260,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
             initialFutureOrbitLineColor,
             initialOrbitProjectionDuration,
             initialTileLayerID,
+            initialMapEngine,
             initialShowTooltip,
             initialShowGrid,
         }),
@@ -263,6 +277,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
             initialFutureOrbitLineColor,
             initialOrbitProjectionDuration,
             initialTileLayerID,
+            initialMapEngine,
             initialShowTooltip,
             initialShowGrid,
         ]
@@ -282,6 +297,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
             initialFutureOrbitLineColor: defaultSettings?.futureOrbitLineColor,
             initialOrbitProjectionDuration: defaultSettings?.orbitProjectionDuration,
             initialTileLayerID: defaultSettings?.tileLayerID,
+            initialMapEngine: defaultSettings?.mapEngine,
             initialShowTooltip: defaultSettings?.showTooltip,
             initialShowGrid: defaultSettings?.showGrid,
         }),
@@ -303,24 +319,41 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
     }, [draftSettings]);
 
     const selectedLayer = useMemo(
-        () => getTileLayerById(draftSettings.tileLayerID),
-        [draftSettings.tileLayerID]
+        () => getTileLayerById(draftSettings.tileLayerID, { mapEngine: draftSettings.mapEngine }),
+        [draftSettings.mapEngine, draftSettings.tileLayerID]
+    );
+
+    const availableTileLayers = useMemo(
+        () => getTileLayersForEngine(draftSettings.mapEngine),
+        [draftSettings.mapEngine]
     );
 
     const initialLayer = useMemo(
-        () => getTileLayerById(initialSettings.tileLayerID),
-        [initialSettings.tileLayerID]
+        () => getTileLayerById(initialSettings.tileLayerID, { mapEngine: initialSettings.mapEngine }),
+        [initialSettings.mapEngine, initialSettings.tileLayerID]
     );
 
+    useEffect(() => {
+        const compatibleLayerId = resolveCompatibleTileLayerId(draftSettings.tileLayerID, draftSettings.mapEngine);
+        if (compatibleLayerId !== draftSettings.tileLayerID) {
+            setDraftSettings((prev) => ({ ...prev, tileLayerID: compatibleLayerId }));
+        }
+    }, [draftSettings.mapEngine, draftSettings.tileLayerID]);
+
     const projectionChanged = (selectedLayer.projection || 'EPSG3857') !== (initialLayer.projection || 'EPSG3857');
+    const mapEngineChanged = draftSettings.mapEngine !== initialSettings.mapEngine;
     const isDirty = !settingsEqual(draftSettings, initialSettings, settingsKeys);
 
     const applySettings = async () => {
+        const mapEngine = normalizeMapEngine(draftSettings.mapEngine);
+        const tileLayerID = resolveCompatibleTileLayerId(draftSettings.tileLayerID, mapEngine);
         const sanitizedSettings = {
             ...draftSettings,
             pastOrbitLineColor: normalizeHexColor(draftSettings.pastOrbitLineColor, initialSettings.pastOrbitLineColor),
             futureOrbitLineColor: normalizeHexColor(draftSettings.futureOrbitLineColor, initialSettings.futureOrbitLineColor),
             satelliteCoverageColor: normalizeHexColor(draftSettings.satelliteCoverageColor, initialSettings.satelliteCoverageColor),
+            mapEngine,
+            tileLayerID,
         };
 
         handleShowPastOrbitPath(sanitizedSettings.showPastOrbitPath);
@@ -338,6 +371,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
         handleFutureOrbitLineColor(sanitizedSettings.futureOrbitLineColor);
         handleSatelliteCoverageColor(sanitizedSettings.satelliteCoverageColor);
         handleOrbitProjectionDuration(sanitizedSettings.orbitProjectionDuration);
+        handleMapEngine?.(sanitizedSettings.mapEngine);
         handleTileLayerID(sanitizedSettings.tileLayerID);
         setDraftSettings(sanitizedSettings);
 
@@ -371,6 +405,29 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                     subtitle={t('map_settings.section_base_map_desc', { defaultValue: 'Choose a basemap and projection.' })}
                 >
                     <FormControl fullWidth size="small" variant="outlined">
+                        <InputLabel id="map-engine-label">{t('map_settings.map_engine', { defaultValue: 'Map Engine' })}</InputLabel>
+                        <Select
+                            labelId="map-engine-label"
+                            value={draftSettings.mapEngine}
+                            label={t('map_settings.map_engine', { defaultValue: 'Map Engine' })}
+                            onChange={(e) => {
+                                const nextMapEngine = normalizeMapEngine(e.target.value);
+                                setDraftSettings((prev) => ({
+                                    ...prev,
+                                    mapEngine: nextMapEngine,
+                                    tileLayerID: resolveCompatibleTileLayerId(prev.tileLayerID, nextMapEngine),
+                                }));
+                            }}
+                        >
+                            {mapEngineOptions.map((engine) => (
+                                <MenuItem key={engine.id} value={engine.id}>
+                                    <Typography variant="body2">{engine.name}</Typography>
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small" variant="outlined">
                         <InputLabel id="tile-layer-label">{t('map_settings.tile_layer')}</InputLabel>
                         <Select
                             labelId="tile-layer-label"
@@ -378,7 +435,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                             label={t('map_settings.tile_layer')}
                             onChange={(e) => setDraftSettings((prev) => ({ ...prev, tileLayerID: e.target.value }))}
                             renderValue={(value) => {
-                                const layer = getTileLayerById(value);
+                                const layer = getTileLayerById(value, { mapEngine: draftSettings.mapEngine });
                                 return (
                                     <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
                                         <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -389,7 +446,7 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                                 );
                             }}
                         >
-                            {tileLayers.map((layer) => (
+                            {availableTileLayers.map((layer) => (
                                 <MenuItem key={layer.id} value={layer.id}>
                                     <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%', minWidth: 0 }}>
                                         <Box sx={{ minWidth: 0, flexGrow: 1 }}>
@@ -409,11 +466,11 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
 
                     <Typography
                         variant="caption"
-                        color={projectionChanged ? 'warning.main' : 'text.secondary'}
+                        color={projectionChanged || mapEngineChanged ? 'warning.main' : 'text.secondary'}
                         sx={{ display: 'block' }}
                     >
                         {t('map_settings.projection_note', {
-                            defaultValue: 'Switching map projection rebuilds the map canvas and may recenter the view.',
+                            defaultValue: 'Switching map engine or projection rebuilds the map canvas and may recenter the view.',
                         })}
                     </Typography>
                 </SectionBlock>

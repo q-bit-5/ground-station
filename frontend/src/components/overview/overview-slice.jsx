@@ -23,6 +23,27 @@ import {createAsyncThunk, createSlice} from '@reduxjs/toolkit';
 import {getTargetMapSettings} from "../target/target-slice.jsx";
 import {calculateElevationCurvesForPasses} from '../../utils/elevation-curve-calculator.js';
 
+const MAP_ENGINE_LEAFLET = 'leaflet';
+const MAP_ENGINE_MAPLIBRE = 'maplibre';
+const MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS = new Set([
+    'nasa_blue_marble_4326',
+    'nasa_osm_land_mask_4326',
+    'nasa_osm_land_water_map_4326',
+]);
+
+const normalizeMapEngine = (mapEngine) => (
+    mapEngine === MAP_ENGINE_MAPLIBRE ? MAP_ENGINE_MAPLIBRE : MAP_ENGINE_LEAFLET
+);
+
+const resolveCompatibleTileLayerId = (tileLayerID, mapEngine) => {
+    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    const normalizedTileLayerID = String(tileLayerID || 'satellite');
+    if (normalizedMapEngine === MAP_ENGINE_MAPLIBRE && MAPLIBRE_UNSUPPORTED_TILE_LAYER_IDS.has(normalizedTileLayerID)) {
+        return 'satellite';
+    }
+    return normalizedTileLayerID;
+};
+
 
 export const getOverviewMapSettings = createAsyncThunk(
     'overviewGroups/getOverviewMapSettings',
@@ -61,6 +82,7 @@ export const setOverviewMapSetting = createAsyncThunk(
             satelliteCoverageColor: state['overviewSatTrack']['satelliteCoverageColor'],
             orbitProjectionDuration: state['overviewSatTrack']['orbitProjectionDuration'],
             tileLayerID: state['overviewSatTrack']['tileLayerID'],
+            mapEngine: state['overviewSatTrack']['mapEngine'],
         };
 
         return await new Promise((resolve, reject) => {
@@ -227,6 +249,7 @@ const overviewSlice = createSlice({
         satelliteCoverageColor: '#FFFFFF',
         orbitProjectionDuration: 240,
         tileLayerID: 'satellite',
+        mapEngine: 'leaflet',
         mapZoomLevel: 1.5,
         satelliteGroupId: null,
         satGroups: [],
@@ -346,8 +369,12 @@ const overviewSlice = createSlice({
         setOrbitProjectionDuration(state, action) {
             state.orbitProjectionDuration = action.payload;
         },
+        setMapEngine(state, action) {
+            state.mapEngine = normalizeMapEngine(action.payload);
+            state.tileLayerID = resolveCompatibleTileLayerId(state.tileLayerID, state.mapEngine);
+        },
         setTileLayerID(state, action) {
-            state.tileLayerID = action.payload;
+            state.tileLayerID = resolveCompatibleTileLayerId(action.payload, state.mapEngine);
         },
         setMapZoomLevel(state, action) {
             state.mapZoomLevel = action.payload;
@@ -527,7 +554,9 @@ const overviewSlice = createSlice({
                 state.loading = false;
                 // Handle null/undefined payload for first-time users
                 if (action.payload) {
-                    state.tileLayerID = action.payload['tileLayerID'];
+                    const mapEngine = normalizeMapEngine(action.payload['mapEngine']);
+                    state.mapEngine = mapEngine;
+                    state.tileLayerID = resolveCompatibleTileLayerId(action.payload['tileLayerID'], mapEngine);
                     state.showPastOrbitPath = action.payload['showPastOrbitPath'];
                     state.showFutureOrbitPath = action.payload['showFutureOrbitPath'];
                     state.showSatelliteCoverage = action.payload['showSatelliteCoverage'];
@@ -569,6 +598,7 @@ export const {
     setFutureOrbitLineColor,
     setSatelliteCoverageColor,
     setOrbitProjectionDuration,
+    setMapEngine,
     setTileLayerID,
     setMapZoomLevel,
     setSatelliteGroupId,

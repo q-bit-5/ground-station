@@ -24,6 +24,7 @@ import L from 'leaflet';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import 'leaflet/dist/leaflet.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import {Box, Fab, Slider} from "@mui/material";
 import {
     StyledIslandParent,

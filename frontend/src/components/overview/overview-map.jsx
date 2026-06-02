@@ -34,6 +34,8 @@ import {Box, Fab, useTheme, Typography, Tooltip, IconButton} from '@mui/material
 import HomeIcon from '@mui/icons-material/Home';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import SettingsIcon from '@mui/icons-material/Settings';
 import {useDispatch, useSelector} from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +46,7 @@ import {
     setSelectedSatellitePositions,
     setOverviewMapSetting,
 } from './overview-slice.jsx';
-import {getMapCrsByTileLayerId, getTileLayerById} from '../common/tile-layers.jsx';
+import {getMapCrsByTileLayerId, getTileLayerById, normalizeMapEngine} from '../common/tile-layers.jsx';
 import {homeIcon, satelliteIcon2, moonIcon, sunIcon} from '../common/dataurl-icons.jsx';
 import {
     TitleBar,
@@ -75,6 +77,7 @@ import {getSunMoonCoords} from '../common/sunmoon.jsx';
 import {useSocket} from '../common/socket.jsx';
 import {store} from '../common/store.jsx';
 import {CircularProgress, Backdrop} from '@mui/material';
+import MapLibreOverviewMapRenderer from './overview-map-maplibre.jsx';
 
 const viewSatelliteLimit = 100;
 
@@ -152,6 +155,36 @@ const FullscreenMapButton = React.memo(function FullscreenMapButton() {
     );
 });
 
+const ZoomInButton = React.memo(function ZoomInButton() {
+    const { t } = useTranslation('overview');
+
+    const handleClick = () => {
+        if (!MapObject) return;
+        MapObject.zoomIn(0.25);
+    };
+
+    return (
+        <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleClick}>
+            <ZoomInIcon/>
+        </Fab>
+    );
+});
+
+const ZoomOutButton = React.memo(function ZoomOutButton() {
+    const { t } = useTranslation('overview');
+
+    const handleClick = () => {
+        if (!MapObject) return;
+        MapObject.zoomOut(0.25);
+    };
+
+    return (
+        <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleClick}>
+            <ZoomOutIcon/>
+        </Fab>
+    );
+});
+
 function areSatellitesEquivalent(prev = [], next = []) {
     if (prev === next) return true;
     if (!Array.isArray(prev) || !Array.isArray(next)) return false;
@@ -164,7 +197,7 @@ function areSatellitesEquivalent(prev = [], next = []) {
     return true;
 }
 
-const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
+const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
     const { t } = useTranslation('overview');
@@ -183,6 +216,7 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
         satelliteCoverageColor,
         orbitProjectionDuration,
         tileLayerID,
+        mapEngine,
         mapZoomLevel,
         satelliteGroupId,
         openMapSettingsDialog,
@@ -197,13 +231,17 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
         (state) => state.overviewSatTrack.selectedSatellites,
         areSatellitesEquivalent
     );
+    const normalizedMapEngine = useMemo(
+        () => normalizeMapEngine(mapEngine),
+        [mapEngine]
+    );
     const selectedTileLayer = useMemo(
-        () => getTileLayerById(tileLayerID),
-        [tileLayerID]
+        () => getTileLayerById(tileLayerID, { mapEngine: normalizedMapEngine }),
+        [normalizedMapEngine, tileLayerID]
     );
     const mapCrs = useMemo(
-        () => getMapCrsByTileLayerId(tileLayerID),
-        [tileLayerID]
+        () => getMapCrsByTileLayerId(tileLayerID, { mapEngine: normalizedMapEngine }),
+        [normalizedMapEngine, tileLayerID]
     );
 
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
@@ -262,6 +300,7 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
     const {location} = useSelector((state) => state.location);
     const updateTimeRef = useRef(null);
     const controlsBoxRef = useRef(null);
+    const zoomControlsRef = useRef(null);
     const arrowControlsRef = useRef(null);
     const elevationHistoryRef = useRef({}); // Store elevation history for each satellite
     const mapInvalidateIntervalRef = useRef(null); // Store interval ID for cleanup
@@ -289,6 +328,7 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
                 const target = e.originalEvent?.target;
                 if (
                     (controlsBoxRef.current && target && controlsBoxRef.current.contains(target)) ||
+                    (zoomControlsRef.current && target && zoomControlsRef.current.contains(target)) ||
                     (arrowControlsRef.current && target && arrowControlsRef.current.contains(target))
                 ) {
                     return;
@@ -835,7 +875,7 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
                 </Backdrop>
                 {/* Leaflet CRS is immutable after map init, so remount when projection changes. */}
                 <MapContainer
-                    key={`overview-map-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
+                    key={`overview-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
                     className="overview-map"
                     fullscreenControl={true}
                     center={[0, 0]}
@@ -849,6 +889,7 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
                     whenReady={handleWhenReady}
                     zoomSnap={0.25}
                     zoomDelta={0.25}
+                    zoomControl={false}
                     keyboard={false}
                     bounceAtZoomLimits={false}
                     closePopupOnClick={false}
@@ -862,6 +903,15 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
                 ) : (
                     <TileLayer url={selectedTileLayer.url}/>
                 )}
+
+                <Box
+                    ref={zoomControlsRef}
+                    sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
+                    style={{left: 5, top: 5, position: 'absolute'}}
+                >
+                    <ZoomInButton/>
+                    <ZoomOutButton/>
+                </Box>
 
                 <Box
                     ref={controlsBoxRef}
@@ -956,6 +1006,16 @@ const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
             </Box>
         </Box>
     );
+};
+
+const SatelliteMapContainer = ({handleSetTrackingOnBackend}) => {
+    const mapEngine = useSelector((state) => state.overviewSatTrack?.mapEngine);
+    const normalizedMapEngine = normalizeMapEngine(mapEngine);
+    const Renderer = normalizedMapEngine === 'maplibre'
+        ? MapLibreOverviewMapRenderer
+        : LeafletOverviewMapRenderer;
+
+    return <Renderer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>;
 };
 
 export default SatelliteMapContainer;
