@@ -38,8 +38,10 @@ const OFFSCREEN_TARGET_STAGGER_PX = 14;
 const OFFSCREEN_TARGET_LABEL_DEPTH_STEP_PX = 9;
 const OFFSCREEN_TARGET_LABEL_SEARCH_STEPS = 7;
 const OFFSCREEN_TARGET_LABEL_SAFE_MARGIN_PX = 4;
-const OFFSCREEN_TARGET_SOUTH_LABEL_BIAS_PX = 24;
+const OFFSCREEN_TARGET_SOUTH_LABEL_BIAS_PX = 8;
+const OFFSCREEN_TARGET_NORTH_LABEL_BIAS_PX = 8;
 const OFFSCREEN_TARGET_SOUTH_ARROW_BIAS_PX = 20;
+const OFFSCREEN_TARGET_NORTH_ARROW_BIAS_PX = 20;
 const MAX_BACKGROUND_RING_RADIUS_PX = 12000;
 const MAX_ZONE_LABEL_RADIUS_PX = 3600;
 const AU_IN_KM = 149597870.7;
@@ -833,7 +835,7 @@ const SolarSystemCanvas = ({
             textWidth,
             textHeight,
             baseSideShift = 0,
-            southBias = 0,
+            verticalBias = 0,
         }) => {
             const bgPadX = 4;
             const bgPadY = 2;
@@ -855,7 +857,7 @@ const SolarSystemCanvas = ({
                 const inwardDistance = OFFSCREEN_TARGET_LABEL_GAP_PX + depthStep * OFFSCREEN_TARGET_LABEL_DEPTH_STEP_PX;
                 for (const sideShift of sideCandidates) {
                     const rawX = baseX - ux * inwardDistance + perpX * sideShift;
-                    const rawY = baseY - uy * inwardDistance + perpY * sideShift - southBias;
+                    const rawY = baseY - uy * inwardDistance + perpY * sideShift + verticalBias;
                     const centerX = clamp(rawX, minLabelX, maxLabelX);
                     const centerY = clamp(rawY, minLabelY, maxLabelY);
                     const box = {
@@ -1200,8 +1202,10 @@ const SolarSystemCanvas = ({
             const perpX = -uy;
             const perpY = ux;
             const stagger = offsetIndex * OFFSCREEN_TARGET_STAGGER_PX;
-            // Keep bottom-pointing indicators clear of the gesture-hint overlay.
+            // Keep bottom/top-pointing indicators clear of persistent overlays.
             const southArrowBias = uy > 0 ? uy * OFFSCREEN_TARGET_SOUTH_ARROW_BIAS_PX : 0;
+            const northArrowBias = uy < 0 ? (-uy) * OFFSCREEN_TARGET_NORTH_ARROW_BIAS_PX : 0;
+            const verticalArrowBias = northArrowBias - southArrowBias;
 
             const tipX = clamp(
                 edgePoint.x,
@@ -1209,7 +1213,7 @@ const SolarSystemCanvas = ({
                 width - OFFSCREEN_TARGET_EDGE_INSET_PX,
             );
             const tipY = clamp(
-                edgePoint.y - southArrowBias,
+                edgePoint.y + verticalArrowBias,
                 OFFSCREEN_TARGET_EDGE_INSET_PX,
                 height - OFFSCREEN_TARGET_EDGE_INSET_PX,
             );
@@ -1234,8 +1238,10 @@ const SolarSystemCanvas = ({
                 ctx.font = '11px monospace';
                 const textWidth = Math.max(8, ctx.measureText(text).width);
                 const textHeight = 10;
-                // Move labels upward when the anchor arrow points toward the bottom edge.
+                // Keep labels away from top/bottom overlays based on arrow direction.
                 const southBias = uy > 0 ? uy * OFFSCREEN_TARGET_SOUTH_LABEL_BIAS_PX : 0;
+                const northBias = uy < 0 ? (-uy) * OFFSCREEN_TARGET_NORTH_LABEL_BIAS_PX : 0;
+                const verticalLabelBias = northBias - southBias;
                 const labelPlacement = findOffscreenLabelPlacement({
                     baseX,
                     baseY,
@@ -1246,7 +1252,7 @@ const SolarSystemCanvas = ({
                     textWidth,
                     textHeight,
                     baseSideShift: stagger,
-                    southBias,
+                    verticalBias: verticalLabelBias,
                 });
                 if (!labelPlacement) {
                     ctx.restore();
