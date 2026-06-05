@@ -46,6 +46,7 @@ import { formatDate as formatDateHelper } from '../../utils/date-time.js';
 import TargetBadge from "../common/target-badge.jsx";
 import { fetchFleetPassSummaries } from "../target/target-slice.jsx";
 import { useSocket } from "../common/socket.jsx";
+import { normalizeTargetType } from "../target/celestial-target-utils.js";
 
 const EMPTY_OPEN_TARGET_DATA = Object.freeze({
     satelliteData: {
@@ -80,6 +81,19 @@ const toTimestampMs = (value) => {
 };
 
 const SHOW_ICON_ELEVATION_OVERLAY = false;
+
+const normalizeTargetTypeLabel = (targetType) => {
+    if (targetType === 'mission') return 'Mission';
+    if (targetType === 'body') return 'Body';
+    return 'Satellite';
+};
+
+const resolveRowTargetType = ({ trackingState = {}, details = {} }) => normalizeTargetType({
+    target_type: trackingState?.target_type ?? details?.target_type,
+    command: trackingState?.command ?? details?.command,
+    body_id: trackingState?.body_id ?? details?.body_id,
+    norad_id: trackingState?.norad_id ?? details?.norad_id,
+});
 
 const SatelliteInfoPopover = () => {
     const dispatch = useDispatch();
@@ -184,12 +198,24 @@ const SatelliteInfoPopover = () => {
             const instanceTrackerId = instance?.tracker_id || '';
             const targetNumber = Number(instance?.target_number || (index + 1));
             const view = trackerViews?.[instanceTrackerId] || {};
+            const instanceTracking = instance?.tracking_state || {};
             const details = view?.satelliteData?.details || {};
             const position = view?.satelliteData?.position || {};
-            const tracking = view?.trackingState || {};
+            const tracking = view?.trackingState || instanceTracking || {};
             const rotator = view?.rotatorData || {};
+            const targetType = resolveRowTargetType({ trackingState: tracking, details });
             const noradId = details?.norad_id ?? tracking?.norad_id ?? null;
-            const satName = details?.name || 'No satellite';
+            const missionCommand = String(tracking?.command || details?.command || '').trim();
+            const bodyId = String(tracking?.body_id || details?.body_id || '').trim().toLowerCase();
+            const targetIdentifier = targetType === 'satellite'
+                ? (noradId != null ? String(noradId) : '')
+                : (targetType === 'mission' ? missionCommand : bodyId);
+            const satName = String(
+                details?.name
+                || tracking?.target_name
+                || targetIdentifier
+                || (targetType === 'satellite' ? 'No satellite' : 'No target')
+            ).trim();
             const satNorad = noradId ?? 'none';
             const elevation = position?.el;
             const latitude = position?.lat;
@@ -206,6 +232,9 @@ const SatelliteInfoPopover = () => {
                 targetNumber,
                 satName,
                 satNorad,
+                targetType,
+                targetTypeLabel: normalizeTargetTypeLabel(targetType),
+                targetIdentifier,
                 elevation,
                 latitude,
                 longitude,
@@ -222,20 +251,32 @@ const SatelliteInfoPopover = () => {
 
     const fleetSummaryRequestTrackers = useMemo(() => {
         return trackerInstances
-            .map((instance, index) => {
+            .map((instance) => {
                 const instanceTrackerId = instance?.tracker_id || '';
                 if (!instanceTrackerId) return null;
                 const view = trackerViews?.[instanceTrackerId] || {};
-                const tracking = view?.trackingState || {};
+                const instanceTracking = instance?.tracking_state || {};
+                const tracking = view?.trackingState || instanceTracking || {};
+                const details = view?.satelliteData?.details || {};
                 const rotator = view?.rotatorData || {};
+                const targetType = resolveRowTargetType({ trackingState: tracking, details });
                 const rawNoradId = tracking?.norad_id;
                 const parsedNoradId = Number(rawNoradId);
-                const noradId = Number.isFinite(parsedNoradId) && parsedNoradId > 0
+                const noradId = targetType === 'satellite' && Number.isFinite(parsedNoradId) && parsedNoradId > 0
                     ? parsedNoradId
                     : null;
+                const missionCommand = targetType === 'mission'
+                    ? String(tracking?.command || details?.command || '').trim()
+                    : '';
+                const bodyId = targetType === 'body'
+                    ? String(tracking?.body_id || details?.body_id || '').trim().toLowerCase()
+                    : '';
                 return {
                     tracker_id: instanceTrackerId,
+                    target_type: targetType,
                     norad_id: noradId,
+                    command: missionCommand || null,
+                    body_id: bodyId || null,
                     min_elevation: Number.isFinite(Number(rotator?.minel)) ? Number(rotator.minel) : 0,
                 };
             })
@@ -484,6 +525,54 @@ const SatelliteInfoPopover = () => {
     };
 
     const getFleetStatus = (row) => {
+        if (row.targetType !== 'satellite') {
+            const elevation = Number(row.elevation);
+            if (!Number.isFinite(elevation)) {
+                if (row.isTrackingActive) {
+                    return {
+                        status: 'Actively Tracking',
+                        color: 'success.main',
+                        backgroundColor: theme.palette.mode === 'dark'
+                            ? `${theme.palette.success.main}25`
+                            : 'success.light',
+                    };
+                }
+                return {
+                    status: 'Targeted',
+                    color: 'text.secondary',
+                    backgroundColor: 'action.hover',
+                };
+            }
+
+            if (elevation < 0) {
+                return {
+                    status: 'Below Horizon',
+                    color: 'error.main',
+                    backgroundColor: theme.palette.mode === 'dark'
+                        ? `${theme.palette.error.main}25`
+                        : 'error.light',
+                };
+            }
+
+            if (row.isTrackingActive) {
+                return {
+                    status: 'Actively Tracking',
+                    color: 'success.main',
+                    backgroundColor: theme.palette.mode === 'dark'
+                        ? `${theme.palette.success.main}25`
+                        : 'success.light',
+                };
+            }
+
+            return {
+                status: 'Visible',
+                color: 'info.main',
+                backgroundColor: theme.palette.mode === 'dark'
+                    ? `${theme.palette.info.main}25`
+                    : 'info.light',
+            };
+        }
+
         if (row.satNorad === 'none') {
             return {
                 status: 'No Satellite',
@@ -837,12 +926,23 @@ const SatelliteInfoPopover = () => {
                                                     textOverflow: 'ellipsis',
                                                 }}
                                             >
-                                                {(row.satNorad !== null
-                                                    && row.satNorad !== undefined
-                                                    && String(row.satNorad).trim() !== ''
-                                                    && String(row.satNorad).toLowerCase() !== 'none')
-                                                    ? `${row.satName} (${row.satNorad})`
-                                                    : row.satName}
+                                                {(() => {
+                                                    if (row.targetType === 'satellite') {
+                                                        if (
+                                                            row.satNorad !== null
+                                                            && row.satNorad !== undefined
+                                                            && String(row.satNorad).trim() !== ''
+                                                            && String(row.satNorad).toLowerCase() !== 'none'
+                                                        ) {
+                                                            return `${row.satName} (${row.satNorad})`;
+                                                        }
+                                                        return row.satName;
+                                                    }
+                                                    if (row.targetIdentifier) {
+                                                        return `${row.satName} (${row.targetIdentifier})`;
+                                                    }
+                                                    return row.satName;
+                                                })()}
                                             </Typography>
                                         </Stack>
 
@@ -852,37 +952,80 @@ const SatelliteInfoPopover = () => {
                                                     variant="caption"
                                                     sx={{ color: rowStatus.color, fontWeight: 'bold' }}
                                                 >
-                                                    {rowStatus.status}
-                                                </Typography>
-                                                <Typography
-                                                    variant="caption"
-                                                    sx={{
-                                                        color: 'text.secondary',
-                                                        display: 'block',
-                                                        mt: 0.2,
-                                                        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                                                    }}
-                                                >
-                                                    {`Lat ${Number.isFinite(Number(row.latitude)) ? Number(row.latitude).toFixed(2) : 'N/A'}°, `}
-                                                    {`Lon ${Number.isFinite(Number(row.longitude)) ? Number(row.longitude).toFixed(2) : 'N/A'}°`}
-                                                    {'  •  '}
-                                                    {`Alt ${Number.isFinite(Number(row.altitude)) ? Number(row.altitude).toFixed(1) : 'N/A'} km`}
-                                                    {'  •  '}
-                                                    {`Speed ${Number.isFinite(Number(row.velocity)) ? Number(row.velocity).toFixed(2) : 'N/A'} km/s`}
-                                                    {'  •  '}
-                                                    {`Az ${Number.isFinite(Number(row.azimuth)) ? Number(row.azimuth).toFixed(1) : 'N/A'}°`}
-                                                </Typography>
-                                                <Typography
-                                                    variant="caption"
-                                                    sx={{
-                                                        color: 'text.secondary',
-                                                        display: 'block',
-                                                        mt: 0.2,
-                                                        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                                                    }}
-                                                >
-                                                    {aosLos}
-                                                </Typography>
+                                                        {rowStatus.status}
+                                                    </Typography>
+                                                {row.targetType === 'satellite' ? (
+                                                    <>
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: 'text.secondary',
+                                                                display: 'block',
+                                                                mt: 0.2,
+                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                                                            }}
+                                                        >
+                                                            {`Lat ${Number.isFinite(Number(row.latitude)) ? Number(row.latitude).toFixed(2) : 'N/A'}°, `}
+                                                            {`Lon ${Number.isFinite(Number(row.longitude)) ? Number(row.longitude).toFixed(2) : 'N/A'}°`}
+                                                            {'  •  '}
+                                                            {`Alt ${Number.isFinite(Number(row.altitude)) ? Number(row.altitude).toFixed(1) : 'N/A'} km`}
+                                                            {'  •  '}
+                                                            {`Speed ${Number.isFinite(Number(row.velocity)) ? Number(row.velocity).toFixed(2) : 'N/A'} km/s`}
+                                                            {'  •  '}
+                                                            {`Az ${Number.isFinite(Number(row.azimuth)) ? Number(row.azimuth).toFixed(1) : 'N/A'}°`}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: 'text.secondary',
+                                                                display: 'block',
+                                                                mt: 0.2,
+                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                                                            }}
+                                                        >
+                                                            {aosLos}
+                                                        </Typography>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: 'text.secondary',
+                                                                display: 'block',
+                                                                mt: 0.2,
+                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                                                            }}
+                                                        >
+                                                            {`Type ${row.targetTypeLabel}`}
+                                                            {row.targetIdentifier ? `  •  ID ${row.targetIdentifier}` : ''}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: 'text.secondary',
+                                                                display: 'block',
+                                                                mt: 0.2,
+                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                                                            }}
+                                                        >
+                                                            {`Az ${Number.isFinite(Number(row.azimuth)) ? Number(row.azimuth).toFixed(1) : 'N/A'}°`}
+                                                            {'  •  '}
+                                                            {`El ${Number.isFinite(Number(row.elevation)) ? Number(row.elevation).toFixed(1) : 'N/A'}°`}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: 'text.secondary',
+                                                                display: 'block',
+                                                                mt: 0.2,
+                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                                                            }}
+                                                        >
+                                                            {aosLos}
+                                                        </Typography>
+                                                    </>
+                                                )}
                                             </Box>
                                             {hasElevation && (
                                                 <Box sx={{ textAlign: 'right' }}>

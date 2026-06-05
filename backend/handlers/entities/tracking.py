@@ -814,6 +814,35 @@ def _coerce_int(value: Any) -> Optional[int]:
         return None
 
 
+def _normalize_tracker_target_type(value: Dict[str, Any]) -> str:
+    explicit_target_type = str(value.get("target_type") or "").strip().lower()
+    if explicit_target_type in ALLOWED_TRACKER_TARGET_TYPES:
+        return explicit_target_type
+    if str(value.get("command") or "").strip():
+        return "mission"
+    if str(value.get("body_id") or "").strip():
+        return "body"
+    norad_id = _coerce_int(value.get("norad_id"))
+    if isinstance(norad_id, int) and norad_id > 0:
+        return "satellite"
+    return "satellite"
+
+
+def _build_non_satellite_target_key(
+    *,
+    target_type: str,
+    command: str = "",
+    body_id: str = "",
+) -> str:
+    if target_type == "mission":
+        normalized_command = str(command or "").strip()
+        return f"mission:{normalized_command}" if normalized_command else ""
+    if target_type == "body":
+        normalized_body_id = str(body_id or "").strip().lower()
+        return f"body:{normalized_body_id}" if normalized_body_id else ""
+    return ""
+
+
 def _parse_iso_to_ms(value: Any) -> Optional[int]:
     if not isinstance(value, str):
         return None
@@ -829,6 +858,42 @@ def _parse_iso_to_ms(value: Any) -> Optional[int]:
         return None
 
 
+def _pick_active_or_upcoming_pass(
+    *,
+    candidate_passes: list[Dict[str, Any]],
+    now_ms: int,
+    min_elevation: float,
+) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    filtered_passes = [
+        p
+        for p in candidate_passes
+        if _coerce_float(p.get("peak_altitude", p.get("peak_elevation_deg")), 0.0) >= min_elevation
+    ]
+
+    active_pass: Optional[Dict[str, Any]] = None
+    next_pass: Optional[Dict[str, Any]] = None
+    next_start_ms: Optional[int] = None
+    for entry in filtered_passes:
+        start_ms = _parse_iso_to_ms(entry.get("event_start"))
+        end_ms = _parse_iso_to_ms(entry.get("event_end"))
+        if start_ms is None or end_ms is None:
+            continue
+        if start_ms <= now_ms < end_ms:
+            active_end_ms = (
+                _parse_iso_to_ms(active_pass["event_end"])
+                if active_pass is not None and "event_end" in active_pass
+                else None
+            )
+            if active_pass is None or active_end_ms is None or end_ms < active_end_ms:
+                active_pass = entry
+            continue
+        if start_ms > now_ms and (next_start_ms is None or start_ms < next_start_ms):
+            next_pass = entry
+            next_start_ms = start_ms
+
+    return active_pass, next_pass
+
+
 async def fetch_next_pass_summaries_for_trackers(
     sio: Any, data: Optional[Dict], logger: Any, sid: str
 ) -> Dict[str, Union[bool, dict, str]]:
@@ -839,7 +904,14 @@ async def fetch_next_pass_summaries_for_trackers(
       {
         "hours": 24.0,
         "trackers": [
-          {"tracker_id": "target-1", "norad_id": 25544, "min_elevation": 10},
+          {
+            "tracker_id": "target-1",
+            "target_type": "satellite|mission|body",
+            "norad_id": 25544,
+            "command": null,
+            "body_id": null,
+            "min_elevation": 10
+          },
           ...
         ]
       }
@@ -880,10 +952,25 @@ async def fetch_next_pass_summaries_for_trackers(
             tracker_id = require_tracker_id(raw.get("tracker_id"))
         except InvalidTrackerIdError:
             continue
+        target_type = _normalize_tracker_target_type(raw)
+        command = str(raw.get("command") or "").strip()
+        body_id = str(raw.get("body_id") or "").strip().lower()
+        target_key = _build_non_satellite_target_key(
+            target_type=target_type,
+            command=command,
+            body_id=body_id,
+        )
+        norad_id = _coerce_int(raw.get("norad_id"))
+        if target_type != "satellite":
+            norad_id = None
         normalized_trackers.append(
             {
                 "tracker_id": tracker_id,
-                "norad_id": _coerce_int(raw.get("norad_id")),
+                "target_type": target_type,
+                "norad_id": norad_id,
+                "command": command if target_type == "mission" else "",
+                "body_id": body_id if target_type == "body" else "",
+                "target_key": target_key,
                 "min_elevation": _coerce_float(raw.get("min_elevation"), 0.0),
             }
         )
@@ -899,13 +986,12 @@ async def fetch_next_pass_summaries_for_trackers(
 
     now_ms = int(time.time() * 1000)
 
-    unique_norad_ids = sorted(
-        {
-            tracker["norad_id"]
-            for tracker in normalized_trackers
-            if isinstance(tracker.get("norad_id"), int) and tracker["norad_id"] > 0
-        }
-    )
+    norad_ids_set: set[int] = set()
+    for tracker in normalized_trackers:
+        candidate_norad_id = tracker.get("norad_id")
+        if isinstance(candidate_norad_id, int) and candidate_norad_id > 0:
+            norad_ids_set.add(candidate_norad_id)
+    unique_norad_ids = sorted(norad_ids_set)
 
     passes_by_norad: Dict[int, list[Dict[str, Any]]] = {}
     cache_by_norad: Dict[int, bool] = {}
@@ -929,14 +1015,162 @@ async def fetch_next_pass_summaries_for_trackers(
         passes_by_norad[norad_id] = passes_reply.get("data", []) or []
         cache_by_norad[norad_id] = bool(passes_reply.get("cached", False))
 
+    unique_non_satellite_targets = {
+        tracker["target_key"]: tracker
+        for tracker in normalized_trackers
+        if tracker["target_type"] in {"mission", "body"} and tracker.get("target_key")
+    }
+    passes_by_target_key: Dict[str, list[Dict[str, Any]]] = {}
+    cache_by_target_key: Dict[str, bool] = {}
+    if unique_non_satellite_targets:
+        celestial_payload = []
+        for target in unique_non_satellite_targets.values():
+            target_type = target["target_type"]
+            if target_type == "mission":
+                command = str(target.get("command") or "").strip()
+                if not command:
+                    continue
+                celestial_payload.append(
+                    {
+                        "target_type": "mission",
+                        "command": command,
+                        "name": command,
+                    }
+                )
+            elif target_type == "body":
+                body_id = str(target.get("body_id") or "").strip().lower()
+                if not body_id:
+                    continue
+                body_name = _resolve_body_display_name(body_id) or body_id
+                celestial_payload.append(
+                    {
+                        "target_type": "body",
+                        "body_id": body_id,
+                        "name": body_name,
+                    }
+                )
+
+        if celestial_payload:
+            try:
+                from celestial.scene import build_celestial_tracks
+
+                projection_payload = {
+                    "past_hours": 24,
+                    "future_hours": max(1, int(hours)),
+                    "step_minutes": 30,
+                }
+
+                def _store_celestial_passes(celestial_passes: list[Dict[str, Any]]) -> None:
+                    for item in celestial_passes:
+                        if not isinstance(item, dict):
+                            continue
+                        target_key = str(item.get("target_key") or "").strip()
+                        if not target_key:
+                            continue
+                        existing = passes_by_target_key.get(target_key, [])
+                        existing.append(item)
+                        passes_by_target_key[target_key] = existing
+
+                celestial_tracks_reply = await build_celestial_tracks(
+                    data={
+                        "celestial": celestial_payload,
+                        **projection_payload,
+                    },
+                    logger=logger,
+                    force_refresh=False,
+                    # Try cached vectors first for low latency and fewer Horizons calls.
+                    allow_network_fetch=False,
+                )
+                if celestial_tracks_reply.get("success"):
+                    tracks_data = celestial_tracks_reply.get("data", {}) or {}
+                    celestial_passes = tracks_data.get("celestial_passes", []) or []
+                    _store_celestial_passes(celestial_passes)
+
+                    unresolved_targets = [
+                        target
+                        for target_key, target in unique_non_satellite_targets.items()
+                        if target_key not in passes_by_target_key
+                    ]
+                    if unresolved_targets:
+                        retry_payload = []
+                        for target in unresolved_targets:
+                            target_type = target["target_type"]
+                            if target_type == "mission":
+                                command = str(target.get("command") or "").strip()
+                                if not command:
+                                    continue
+                                retry_payload.append(
+                                    {
+                                        "target_type": "mission",
+                                        "command": command,
+                                        "name": command,
+                                    }
+                                )
+                            elif target_type == "body":
+                                body_id = str(target.get("body_id") or "").strip().lower()
+                                if not body_id:
+                                    continue
+                                body_name = _resolve_body_display_name(body_id) or body_id
+                                retry_payload.append(
+                                    {
+                                        "target_type": "body",
+                                        "body_id": body_id,
+                                        "name": body_name,
+                                    }
+                                )
+
+                        if retry_payload:
+                            warm_cache_reply = await build_celestial_tracks(
+                                data={
+                                    "celestial": retry_payload,
+                                    **projection_payload,
+                                },
+                                logger=logger,
+                                force_refresh=False,
+                                # Cold-start fallback so mission/body AOS/LOS works right after restart.
+                                allow_network_fetch=True,
+                            )
+                            if warm_cache_reply.get("success"):
+                                warm_tracks_data = warm_cache_reply.get("data", {}) or {}
+                                warm_passes = warm_tracks_data.get("celestial_passes", []) or []
+                                _store_celestial_passes(warm_passes)
+                            else:
+                                logger.warning(
+                                    "Failed warming celestial pass summaries for non-satellite targets (sid=%s): %s",
+                                    sid,
+                                    warm_cache_reply.get("error"),
+                                )
+
+                    for target_key, target_passes in passes_by_target_key.items():
+                        cache_by_target_key[target_key] = any(
+                            str(entry.get("cache") or "").strip() != ""
+                            for entry in target_passes
+                            if isinstance(entry, dict)
+                        )
+                else:
+                    logger.warning(
+                        "Failed fetching celestial pass summaries for non-satellite targets (sid=%s): %s",
+                        sid,
+                        celestial_tracks_reply.get("error"),
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Celestial pass summary fetch failed for non-satellite targets (sid=%s): %s",
+                    sid,
+                    exc,
+                )
+
     summaries_by_tracker_id: Dict[str, Dict[str, Any]] = {}
     for tracker in normalized_trackers:
         tracker_id = tracker["tracker_id"]
+        target_type = tracker["target_type"]
         norad_id = tracker["norad_id"]
         min_elevation = tracker["min_elevation"]
+        target_key = tracker.get("target_key") or ""
 
         summary = {
             "tracker_id": tracker_id,
+            "target_type": target_type,
             "norad_id": norad_id,
             "mode": "none",
             "aos_ts": None,
@@ -944,41 +1178,31 @@ async def fetch_next_pass_summaries_for_trackers(
             "cached": False,
         }
 
-        # Non-satellite targets may carry an empty NORAD identifier.
-        # Treat missing/invalid IDs as "no satellite pass summary" instead of hard-failing.
-        if not isinstance(norad_id, int) or norad_id <= 0:
-            summaries_by_tracker_id[tracker_id] = summary
-            continue
-
-        candidate_passes: list[Dict[str, Any]] = passes_by_norad.get(norad_id, [])
-        filtered_passes = [
-            p
-            for p in candidate_passes
-            if _coerce_float(p.get("peak_altitude"), 0.0) >= min_elevation
-        ]
-
-        active_pass: Optional[Dict[str, Any]] = None
-        next_pass: Optional[Dict[str, Any]] = None
-        next_start_ms: Optional[int] = None
-        for entry in filtered_passes:
-            start_ms = _parse_iso_to_ms(entry.get("event_start"))
-            end_ms = _parse_iso_to_ms(entry.get("event_end"))
-            if start_ms is None or end_ms is None:
+        if target_type == "satellite":
+            # Satellite summaries are NORAD-based.
+            if not isinstance(norad_id, int) or norad_id <= 0:
+                summaries_by_tracker_id[tracker_id] = summary
                 continue
-            if start_ms <= now_ms < end_ms:
-                active_end_ms = (
-                    _parse_iso_to_ms(active_pass["event_end"])
-                    if active_pass is not None and "event_end" in active_pass
-                    else None
-                )
-                if active_pass is None or active_end_ms is None or end_ms < active_end_ms:
-                    active_pass = entry
+            candidate_passes = passes_by_norad.get(norad_id, [])
+            active_pass, next_pass = _pick_active_or_upcoming_pass(
+                candidate_passes=candidate_passes,
+                now_ms=now_ms,
+                min_elevation=min_elevation,
+            )
+            summary["cached"] = bool(cache_by_norad.get(norad_id, False))
+        else:
+            # Mission/body summaries are keyed by celestial target identity.
+            if not target_key:
+                summaries_by_tracker_id[tracker_id] = summary
                 continue
-            if start_ms > now_ms and (next_start_ms is None or start_ms < next_start_ms):
-                next_pass = entry
-                next_start_ms = start_ms
+            candidate_passes = passes_by_target_key.get(target_key, [])
+            active_pass, next_pass = _pick_active_or_upcoming_pass(
+                candidate_passes=candidate_passes,
+                now_ms=now_ms,
+                min_elevation=min_elevation,
+            )
+            summary["cached"] = bool(cache_by_target_key.get(target_key, False))
 
-        summary["cached"] = bool(cache_by_norad.get(norad_id, False))
         if active_pass:
             summary["mode"] = "live"
             summary["aos_ts"] = active_pass.get("event_start")

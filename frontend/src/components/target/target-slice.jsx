@@ -645,7 +645,10 @@ export const fetchFleetPassSummaries = createAsyncThunk(
                 .filter((tracker) => tracker && typeof tracker === 'object')
                 .map((tracker) => ({
                     tracker_id: tracker.tracker_id,
+                    target_type: tracker.target_type,
                     norad_id: tracker.norad_id,
+                    command: tracker.command,
+                    body_id: tracker.body_id,
                     min_elevation: tracker.min_elevation ?? 0,
                 }))
             : [];
