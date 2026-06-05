@@ -896,7 +896,12 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
     const targetOptions = useMemo(() => tabTrackerInstances.map((instance, index) => {
         const instanceTrackerId = instance?.tracker_id || '';
         const parsedTargetNumber = parseTargetSlotNumber(instanceTrackerId);
-        const targetNumber = parsedTargetNumber != null ? Number(parsedTargetNumber) : null;
+        const instanceTargetNumber = Number(instance?.target_number);
+        const targetNumber = parsedTargetNumber != null
+            ? Number(parsedTargetNumber)
+            : (Number.isFinite(instanceTargetNumber) && instanceTargetNumber > 0
+                ? instanceTargetNumber
+                : null);
         const isObservationTracker = parsedTargetNumber == null;
         const view = trackerViews?.[instanceTrackerId] || {};
         const effectiveTrackingState = view?.trackingState || instance?.tracking_state || {};
@@ -1804,9 +1809,9 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
                                 const shortName = option.targetName.length > 20
                                     ? `${option.targetName.slice(0, 20)}...`
                                     : option.targetName;
-                                const trackerLabel = option.isObservationTracker
-                                    ? 'OBS'
-                                    : `T${option.targetNumber}`;
+                                const trackerLabel = Number.isFinite(Number(option.targetNumber))
+                                    ? `T${option.targetNumber}`
+                                    : (option.isObservationTracker ? 'OBS' : 'T?');
                                 const targetIdTooltip = option.targetType === TARGET_TYPES.SATELLITE
                                     ? `NORAD ${option.targetIdentifier}`
                                     : (option.targetType === TARGET_TYPES.MISSION
