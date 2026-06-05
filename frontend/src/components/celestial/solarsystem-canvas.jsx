@@ -10,6 +10,7 @@ const PLANET_COLORS = {
     earth: '#4f8cff',
     moon: '#cfd8dc',
     mars: '#c04f3d',
+    ceres: '#b8b6b0',
     jupiter: '#d2a679',
     io: '#f4e6b3',
     europa: '#d8d8cf',
@@ -22,6 +23,10 @@ const PLANET_COLORS = {
     iapetus: '#b8b0a2',
     uranus: '#76c7c0',
     neptune: '#5a7bd8',
+    pluto: '#b79876',
+    haumea: '#d8d6e8',
+    makemake: '#c88764',
+    eris: '#d5e1ef',
 };
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));

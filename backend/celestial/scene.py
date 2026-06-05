@@ -61,6 +61,12 @@ BODY_HORIZONS_COMMANDS: Dict[str, str] = {
     "saturn": "699",
     "uranus": "799",
     "neptune": "899",
+    # IAU-recognized dwarf planets.
+    "ceres": "1",
+    "pluto": "999",
+    "haumea": "136108",
+    "makemake": "136472",
+    "eris": "136199",
     # Moons currently exposed by the body catalog.
     "moon": "301",
     "io": "501",
@@ -726,6 +732,7 @@ async def _build_horizons_solar_system_bodies(
         "epoch_utc": epoch.astimezone(timezone.utc).isoformat(),
         "body_type_counts": {
             "planet": sum(1 for row in planets if str(row.get("body_type")) == "planet"),
+            "dwarf": sum(1 for row in planets if str(row.get("body_type")) == "dwarf"),
             "moon": sum(1 for row in planets if str(row.get("body_type")) == "moon"),
         },
         "cache": {

@@ -55,6 +55,13 @@ _BODY_CATALOG: List[Dict[str, object]] = [
         "sort_order": 40,
     },
     {
+        "body_id": "ceres",
+        "name": "Ceres",
+        "body_type": "dwarf",
+        "parent_body_id": None,
+        "sort_order": 45,
+    },
+    {
         "body_id": "jupiter",
         "name": "Jupiter",
         "body_type": "planet",
@@ -137,6 +144,34 @@ _BODY_CATALOG: List[Dict[str, object]] = [
         "body_type": "planet",
         "parent_body_id": None,
         "sort_order": 80,
+    },
+    {
+        "body_id": "pluto",
+        "name": "Pluto",
+        "body_type": "dwarf",
+        "parent_body_id": None,
+        "sort_order": 85,
+    },
+    {
+        "body_id": "haumea",
+        "name": "Haumea",
+        "body_type": "dwarf",
+        "parent_body_id": None,
+        "sort_order": 86,
+    },
+    {
+        "body_id": "makemake",
+        "name": "Makemake",
+        "body_type": "dwarf",
+        "parent_body_id": None,
+        "sort_order": 87,
+    },
+    {
+        "body_id": "eris",
+        "name": "Eris",
+        "body_type": "dwarf",
+        "parent_body_id": None,
+        "sort_order": 88,
     },
 ]
 

@@ -421,9 +421,15 @@ const CelestialMainLayout = () => {
         },
         { planets: 0, moons: 0 },
     );
-    const planetsCount = Number.isFinite(Number(bodyTypeCounts?.planet))
-        ? Number(bodyTypeCounts.planet)
-        : inferredCounts.planets;
+    const planetsCount = (
+        Number.isFinite(Number(bodyTypeCounts?.planet))
+            ? Number(bodyTypeCounts.planet)
+            : inferredCounts.planets
+    ) + (
+        Number.isFinite(Number(bodyTypeCounts?.dwarf))
+            ? Number(bodyTypeCounts.dwarf)
+            : 0
+    );
     const moonsCount = Number.isFinite(Number(bodyTypeCounts?.moon))
         ? Number(bodyTypeCounts.moon)
         : inferredCounts.moons;
