@@ -58,6 +58,7 @@ import MapSettingsIslandDialog from './map-settings-dialog.jsx';
 import createTerminatorLine from '../common/terminator-line.jsx';
 import {getSunMoonCoords} from '../common/sunmoon.jsx';
 import {useSocket} from '../common/socket.jsx';
+import {resolveDynamicOrbitPathSegments} from '../common/orbit-path-dynamic-split.js';
 import {
     satelliteCoverageSelector,
     satelliteDetailsSelector,
@@ -379,8 +380,17 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
 
     const gridGeoJSON = useMemo(() => buildGridGeoJSON(15, 15), []);
 
+    const dynamicOrbitPaths = useMemo(
+        () => resolveDynamicOrbitPathSegments({
+            pastPath: satellitePaths?.past,
+            futurePath: satellitePaths?.future,
+            satellitePosition,
+        }),
+        [satellitePaths?.future, satellitePaths?.past, satellitePosition]
+    );
+
     const pastPathGeoJSON = useMemo(() => {
-        const features = normalizePathSegments(Array.isArray(satellitePaths?.past) ? satellitePaths.past : [])
+        const features = normalizePathSegments(dynamicOrbitPaths.past)
             .map((segment) => {
                 const coordinates = segment.map(latLonToLngLat).filter(Boolean);
                 if (coordinates.length < 2) return null;
@@ -395,10 +405,10 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
             type: 'FeatureCollection',
             features,
         };
-    }, [satellitePaths?.past]);
+    }, [dynamicOrbitPaths.past]);
 
     const futurePathGeoJSON = useMemo(() => {
-        const features = normalizePathSegments(Array.isArray(satellitePaths?.future) ? satellitePaths.future : [])
+        const features = normalizePathSegments(dynamicOrbitPaths.future)
             .map((segment) => {
                 const coordinates = segment.map(latLonToLngLat).filter(Boolean);
                 if (coordinates.length < 2) return null;
@@ -413,7 +423,7 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
             type: 'FeatureCollection',
             features,
         };
-    }, [satellitePaths?.future]);
+    }, [dynamicOrbitPaths.future]);
 
     const coverageGeoJSON = useMemo(() => {
         const coveragePoints = Array.isArray(satelliteCoverage)
@@ -804,11 +814,15 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
                             <Layer
                                 id="target-maplibre-future-path-layer"
                                 type="line"
+                                layout={{
+                                    'line-cap': 'round',
+                                    'line-join': 'round',
+                                }}
                                 paint={{
                                     'line-color': futureOrbitLineColor,
                                     'line-width': 2,
                                     'line-opacity': 0.8,
-                                    'line-dasharray': [3, 3],
+                                    'line-dasharray': [0.1, 2.4],
                                 }}
                             />
                         </Source>

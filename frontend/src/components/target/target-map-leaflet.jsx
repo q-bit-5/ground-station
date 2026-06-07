@@ -107,6 +107,7 @@ import {
     normalizeTargetType,
     resolveTargetDisplayName,
 } from './celestial-target-utils.js';
+import {resolveDynamicOrbitPathSegments} from '../common/orbit-path-dynamic-split.js';
 
 const storageMapZoomValueKey = "target-map-zoom-level";
 const TARGET_SLOT_ID_PATTERN = /^target-(\d+)$/;
@@ -633,6 +634,11 @@ const LeafletTargetMapRenderer = ({}) => {
             const altitude = satellitePosition?.alt;
             const velocity = satellitePosition?.vel;
             const paths = satellitePaths || {};
+            const dynamicPaths = resolveDynamicOrbitPathSegments({
+                pastPath: paths?.past,
+                futurePath: paths?.future,
+                satellitePosition,
+            });
             const coverage = satelliteCoverage;
             const hasValidSatellitePoint = isValidLatLon(latitude, longitude);
             const humanizedAltitude = humanizeAltitude(altitude, 0);
@@ -654,11 +660,11 @@ const LeafletTargetMapRenderer = ({}) => {
             //let mapCoords = MapObject.getCenter();
             //MapObject.setView([latitude, longitude], MapObject.getZoom());
 
-            if (Array.isArray(paths?.past) && Array.isArray(paths?.future)) {
+            if (Array.isArray(dynamicPaths?.past) && Array.isArray(dynamicPaths?.future)) {
                 // past path
                 currentPastPaths.push(<Polyline
                     key={`past-path-${noradId}`}
-                    positions={paths.past}
+                    positions={dynamicPaths.past}
                     pathOptions={{
                         color: pastOrbitLineColor,
                         weight: 2,
@@ -670,12 +676,13 @@ const LeafletTargetMapRenderer = ({}) => {
                 // future path
                 currentFuturePaths.push(<Polyline
                     key={`future-path-${noradId}`}
-                    positions={paths.future}
+                    positions={dynamicPaths.future}
                     pathOptions={{
                         color: futureOrbitLineColor,
                         weight: 2,
                         opacity: 0.8,
-                        dashArray: "3 3",
+                        dashArray: "1 6",
+                        lineCap: "round",
                         smoothFactor: 1,
                     }}
                 />)
