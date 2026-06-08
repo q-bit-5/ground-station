@@ -1757,7 +1757,7 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
                             value={tabValue}
                             onChange={handleTargetTabChange}
                             variant="scrollable"
-                            scrollButtons="auto"
+                            scrollButtons
                             allowScrollButtonsMobile
                             sx={{
                                 width: 'auto',
@@ -1773,10 +1773,7 @@ const TargetSelectorBar = React.memo(function TargetSelectorBar() {
                                     flexShrink: 0,
                                 },
                                 '& .MuiTabs-scrollButtons.Mui-disabled': {
-                                    width: 0,
-                                    minWidth: 0,
-                                    padding: 0,
-                                    margin: 0,
+                                    opacity: 0.3,
                                 },
                                 '& .MuiTabs-flexContainer': {
                                     minHeight: '100%',
