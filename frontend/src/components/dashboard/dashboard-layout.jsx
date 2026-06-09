@@ -53,7 +53,7 @@ import {stringAvatar} from "../common/common.jsx";
 import Grid from "@mui/material/Grid";
 import BorderColorIcon from '@mui/icons-material/BorderColor';
 import {useCallback, useEffect, useRef, useState} from "react";
-import {setGridEditable as setOverviewGridEditable} from '../overview/overview-slice.jsx';
+import {setGridEditable as setEarthViewGridEditable} from '../earthview/earthview-slice.jsx';
 import {setGridEditable as setTargetGridEditable} from '../target/target-slice.jsx';
 import {setGridEditable as setWaterfallGridEditable} from '../waterfall/waterfall-slice.jsx';
 import CheckIcon from '@mui/icons-material/Check';
@@ -148,21 +148,21 @@ function DashboardEditor() {
         // The previous approach relied on mutable callbacks exported from page modules, which can
         // become brittle under optimized/code-split production bundles.
         dispatch(setIsEditing(true));
-        dispatch(setOverviewGridEditable(true));
+        dispatch(setEarthViewGridEditable(true));
         dispatch(setTargetGridEditable(true));
         dispatch(setWaterfallGridEditable(true));
     };
 
     const handleSaveClick = () => {
         dispatch(setIsEditing(false));
-        dispatch(setOverviewGridEditable(false));
+        dispatch(setEarthViewGridEditable(false));
         dispatch(setTargetGridEditable(false));
         dispatch(setWaterfallGridEditable(false));
     };
 
     const handleCancelClick = () => {
         dispatch(setIsEditing(false));
-        dispatch(setOverviewGridEditable(false));
+        dispatch(setEarthViewGridEditable(false));
         dispatch(setTargetGridEditable(false));
         dispatch(setWaterfallGridEditable(false));
     };

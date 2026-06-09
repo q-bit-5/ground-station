@@ -3,7 +3,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {useNavigate} from 'react-router';
 import {
     fetchSatelliteData
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ExploreIcon from '@mui/icons-material/Explore';
 import HeightIcon from '@mui/icons-material/Height';
@@ -49,12 +49,12 @@ import { SatelliteInfoDialog } from '../satellites/satellite-info-page.jsx';
 import { useTargetRotatorSelectionDialog } from '../target/use-target-rotator-selection-dialog.jsx';
 // ElevationDisplay removed per request; display raw value instead
 
-const OverviewSatelliteInfoCard = () => {
+const EarthViewSatelliteInfoCard = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const {socket} = useSocket();
     const [dialogOpen, setDialogOpen] = useState(false);
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const {
         satelliteData,
         selectedSatelliteId,
@@ -63,7 +63,7 @@ const OverviewSatelliteInfoCard = () => {
         gridEditable,
         selectedSatGroupId,
         selectedSatellitePositions
-    } = useSelector((state) => state.overviewSatTrack);
+    } = useSelector((state) => state.earthViewTrack);
     const {
         trackingState,
         satelliteId: trackingSatelliteId,
@@ -674,4 +674,4 @@ const OverviewSatelliteInfoCard = () => {
     );
 };
 
-export default OverviewSatelliteInfoCard;
+export default EarthViewSatelliteInfoCard;

@@ -32,29 +32,29 @@ import {
     fetchSatellitesByGroupId,
     addRecentSatelliteGroup,
     setRecentSatelliteGroups,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 
 const SATELLITE_NUMBER_LIMIT = 200;
 const RECENT_GROUPS_KEY = 'satellite-recent-groups';
 
 const SatelliteGroupSelectorBar = React.memo(function SatelliteGroupSelectorBar() {
     const dispatch = useDispatch();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const { socket } = useSocket();
     const store = useStore();
     const theme = useTheme();
     const isCompactHeader = useMediaQuery(theme.breakpoints.down('lg'));
     const isTightHeader = useMediaQuery(theme.breakpoints.down('md'));
 
-    const selectedSatGroupId = useSelector(state => state.overviewSatTrack.selectedSatGroupId);
-    const satGroups = useSelector(state => state.overviewSatTrack.satGroups);
-    const passesLoading = useSelector(state => state.overviewSatTrack.passesLoading);
-    const recentGroups = useSelector(state => state.overviewSatTrack.recentSatelliteGroups);
+    const selectedSatGroupId = useSelector(state => state.earthViewTrack.selectedSatGroupId);
+    const satGroups = useSelector(state => state.earthViewTrack.satGroups);
+    const passesLoading = useSelector(state => state.earthViewTrack.passesLoading);
+    const recentGroups = useSelector(state => state.earthViewTrack.recentSatelliteGroups);
 
     // Use ref-based selector to prevent re-renders from position updates
     const selectedSatellitePositionsRef = useRef(() => {
         const state = store.getState();
-        return state.overviewSatTrack.selectedSatellitePositions;
+        return state.earthViewTrack.selectedSatellitePositions;
     });
 
     const [visiblePillIds, setVisiblePillIds] = useState(new Set());

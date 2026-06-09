@@ -40,13 +40,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
     setSatellitesTableColumnVisibility,
     setSatellitesTablePageSize,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 
 const SatellitesTableSettingsDialog = ({ open, onClose }) => {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const dispatch = useDispatch();
-    const columnVisibility = useSelector(state => state.overviewSatTrack.satellitesTableColumnVisibility);
-    const satellitesTablePageSize = useSelector(state => state.overviewSatTrack.satellitesTablePageSize);
+    const columnVisibility = useSelector(state => state.earthViewTrack.satellitesTableColumnVisibility);
+    const satellitesTablePageSize = useSelector(state => state.earthViewTrack.satellitesTablePageSize);
 
     const rowsPerPageOptions = [5, 10, 15, 20, 50];
 

@@ -35,11 +35,11 @@ import {useNavigate} from 'react-router-dom';
 import {
     setOpenMapSettingsDialog,
     setMapZoomLevel,
-    setOverviewMapSetting,
+    setEarthViewMapSetting,
     setSelectedSatelliteId,
     setSelectedSatellitePositions,
     setSatelliteData,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 import {
     getMapLibreTileURL,
     getTileLayerById,
@@ -227,7 +227,7 @@ function isMapLibreOverlayTarget(target) {
     return Boolean(target.closest('.maplibregl-marker, .maplibregl-popup'));
 }
 
-const OverviewAttributionBar = React.memo(function OverviewAttributionBar({htmlString}) {
+const EarthViewAttributionBar = React.memo(function EarthViewAttributionBar({htmlString}) {
     return (
         <MapStatusBar>
             <SimpleTruncatedHtml className={'attribution'} htmlString={htmlString}/>
@@ -315,7 +315,7 @@ const MapLibreSatellitePopup = React.memo(function MapLibreSatellitePopup({
     return (
         <Popup
             ref={popupRef}
-            key={`overview-maplibre-popup-${popupId}-${tooltipDirection}`}
+            key={`earth-view-maplibre-popup-${popupId}-${tooltipDirection}`}
             longitude={longitude}
             latitude={latitude}
             maxWidth="none"
@@ -330,11 +330,11 @@ const MapLibreSatellitePopup = React.memo(function MapLibreSatellitePopup({
     );
 });
 
-const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
+const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const {t} = useTranslation('overview');
+    const {t} = useTranslation('earthview');
     const theme = useTheme();
     const {
         showPastOrbitPath,
@@ -356,10 +356,10 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
         selectedSatelliteId,
         selectedSatGroupId,
         loadingSatellites,
-    } = useSelector((state) => state.overviewSatTrack);
+    } = useSelector((state) => state.earthViewTrack);
 
     const selectedSatellites = useSelector(
-        (state) => state.overviewSatTrack.selectedSatellites,
+        (state) => state.earthViewTrack.selectedSatellites,
         areSatellitesEquivalent
     );
 
@@ -570,7 +570,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 };
 
                 if (selectedSatelliteId === noradId) {
-                    const recentSatData = store.getState().overviewSatTrack.satelliteData;
+                    const recentSatData = store.getState().earthViewTrack.satelliteData;
                     dispatch(
                         setSatelliteData({
                             ...recentSatData,
@@ -639,7 +639,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     });
                 }
             } catch (error) {
-                console.error(`Error while updating overview map satellite ${satellite?.norad_id}: ${error}`);
+                console.error(`Error while updating earth view map satellite ${satellite?.norad_id}: ${error}`);
             }
         });
 
@@ -854,7 +854,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         display: 'none !important',
                     },
                     // Match Leaflet selected-satellite tooltip style for non-tracked targets.
-                    '& .overview-maplibre-popup .maplibregl-popup-content': {
+                    '& .earth-view-maplibre-popup .maplibregl-popup-content': {
                         backgroundColor: theme.palette.background.paper,
                         color: theme.palette.text.primary,
                         border: `1px solid ${theme.palette.background.paper}`,
@@ -864,7 +864,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         padding: '6px 8px',
                     },
                     // Match Leaflet tracked-satellite tooltip style.
-                    '& .overview-maplibre-tracked-popup .maplibregl-popup-content': {
+                    '& .earth-view-maplibre-tracked-popup .maplibregl-popup-content': {
                         backgroundColor: theme.palette.error.dark,
                         color: theme.palette.text.primary,
                         border: `1px solid ${theme.palette.error.main}`,
@@ -873,28 +873,28 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         whiteSpace: 'nowrap',
                         padding: '6px 8px',
                     },
-                    '& .overview-maplibre-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .overview-maplibre-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .overview-maplibre-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .earth-view-maplibre-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .earth-view-maplibre-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip': {
                         borderBottomColor: `${theme.palette.background.paper} !important`,
                     },
-                    '& .overview-maplibre-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip, & .overview-maplibre-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, & .overview-maplibre-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip, & .earth-view-maplibre-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, & .earth-view-maplibre-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip': {
                         borderTopColor: `${theme.palette.background.paper} !important`,
                     },
-                    '& .overview-maplibre-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip': {
                         borderRightColor: `${theme.palette.background.paper} !important`,
                     },
-                    '& .overview-maplibre-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip': {
                         borderLeftColor: `${theme.palette.background.paper} !important`,
                     },
-                    '& .overview-maplibre-tracked-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip, & .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, & .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip': {
                         borderBottomColor: `${theme.palette.error.main} !important`,
                     },
-                    '& .overview-maplibre-tracked-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, & .overview-maplibre-tracked-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip, & .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, & .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip': {
                         borderTopColor: `${theme.palette.error.main} !important`,
                     },
-                    '& .overview-maplibre-tracked-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip': {
                         borderRightColor: `${theme.palette.error.main} !important`,
                     },
-                    '& .overview-maplibre-tracked-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip': {
+                    '& .earth-view-maplibre-tracked-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip': {
                         borderLeftColor: `${theme.palette.error.main} !important`,
                     },
                 }}
@@ -940,9 +940,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     style={{width: '100%', height: '100%'}}
                 >
                     {showTerminatorLine && daySideGeoJSON.features.length > 0 ? (
-                        <Source id="overview-maplibre-day-side" type="geojson" data={daySideGeoJSON}>
+                        <Source id="earth-view-maplibre-day-side" type="geojson" data={daySideGeoJSON}>
                             <Layer
-                                id="overview-maplibre-day-side-fill"
+                                id="earth-view-maplibre-day-side-fill"
                                 type="fill"
                                 paint={{
                                     'fill-color': '#000000',
@@ -953,9 +953,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     ) : null}
 
                     {showTerminatorLine && terminatorGeoJSON.features.length > 0 ? (
-                        <Source id="overview-maplibre-terminator" type="geojson" data={terminatorGeoJSON}>
+                        <Source id="earth-view-maplibre-terminator" type="geojson" data={terminatorGeoJSON}>
                             <Layer
-                                id="overview-maplibre-terminator-line"
+                                id="earth-view-maplibre-terminator-line"
                                 type="line"
                                 paint={{
                                     'line-color': '#FFFFFF',
@@ -966,9 +966,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         </Source>
                     ) : null}
 
-                    <Source id="overview-maplibre-date-line" type="geojson" data={DATE_LINE_GEOJSON}>
+                    <Source id="earth-view-maplibre-date-line" type="geojson" data={DATE_LINE_GEOJSON}>
                         <Layer
-                            id="overview-maplibre-date-line-layer"
+                            id="earth-view-maplibre-date-line-layer"
                             type="line"
                             paint={{
                                 'line-color': '#FFFFFF',
@@ -980,9 +980,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     </Source>
 
                     {showPastOrbitPath && pastPathGeoJSON.features.length > 0 ? (
-                        <Source id="overview-maplibre-past-path" type="geojson" data={pastPathGeoJSON}>
+                        <Source id="earth-view-maplibre-past-path" type="geojson" data={pastPathGeoJSON}>
                             <Layer
-                                id="overview-maplibre-past-path-layer"
+                                id="earth-view-maplibre-past-path-layer"
                                 type="line"
                                 paint={{
                                     'line-color': pastOrbitLineColor,
@@ -994,9 +994,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     ) : null}
 
                     {showFutureOrbitPath && futurePathGeoJSON.features.length > 0 ? (
-                        <Source id="overview-maplibre-future-path" type="geojson" data={futurePathGeoJSON}>
+                        <Source id="earth-view-maplibre-future-path" type="geojson" data={futurePathGeoJSON}>
                             <Layer
-                                id="overview-maplibre-future-path-layer"
+                                id="earth-view-maplibre-future-path-layer"
                                 type="line"
                                 paint={{
                                     'line-color': futureOrbitLineColor,
@@ -1009,9 +1009,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     ) : null}
 
                     {coverageGeoJSON.features.length > 0 ? (
-                        <Source id="overview-maplibre-coverage" type="geojson" data={coverageGeoJSON}>
+                        <Source id="earth-view-maplibre-coverage" type="geojson" data={coverageGeoJSON}>
                             <Layer
-                                id="overview-maplibre-coverage-fill"
+                                id="earth-view-maplibre-coverage-fill"
                                 type="fill"
                                 paint={{
                                     'fill-color': satelliteCoverageColor,
@@ -1019,7 +1019,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                                 }}
                             />
                             <Layer
-                                id="overview-maplibre-coverage-line"
+                                id="earth-view-maplibre-coverage-line"
                                 type="line"
                                 paint={{
                                     'line-color': ['case', ['==', ['get', 'selected'], 1], '#FFFFFF', satelliteCoverageColor],
@@ -1032,9 +1032,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     ) : null}
 
                     {crosshairGeoJSON.features.length > 0 ? (
-                        <Source id="overview-maplibre-crosshairs" type="geojson" data={crosshairGeoJSON}>
+                        <Source id="earth-view-maplibre-crosshairs" type="geojson" data={crosshairGeoJSON}>
                             <Layer
-                                id="overview-maplibre-crosshairs-layer"
+                                id="earth-view-maplibre-crosshairs-layer"
                                 type="line"
                                 paint={{
                                     'line-color': theme.palette.error.main,
@@ -1046,9 +1046,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     ) : null}
 
                     {showGrid ? (
-                        <Source id="overview-maplibre-grid" type="geojson" data={gridGeoJSON}>
+                        <Source id="earth-view-maplibre-grid" type="geojson" data={gridGeoJSON}>
                             <Layer
-                                id="overview-maplibre-grid-layer"
+                                id="earth-view-maplibre-grid-layer"
                                 type="line"
                                 paint={{
                                     'line-color': '#FFFFFF',
@@ -1083,7 +1083,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         const visibleMarkerBorderColor = marker.isTracked ? theme.palette.error.main : '#e0f2fe';
 
                         return (
-                            <React.Fragment key={`overview-maplibre-marker-${marker.noradId}`}>
+                            <React.Fragment key={`earth-view-maplibre-marker-${marker.noradId}`}>
                                 {marker.isTracked ? (
                                     <Marker
                                         longitude={marker.lon}
@@ -1165,7 +1165,7 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                                         popupId={marker.noradId}
                                         longitude={marker.lon}
                                         latitude={marker.lat}
-                                        className={marker.isTracked ? 'overview-maplibre-tracked-popup' : 'overview-maplibre-popup'}
+                                        className={marker.isTracked ? 'earth-view-maplibre-tracked-popup' : 'earth-view-maplibre-popup'}
                                     >
                                         <Box sx={{display: 'flex', flexDirection: 'column', gap: 0.5}}>
                                             <strong>
@@ -1262,8 +1262,8 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
 
                 <MapSettingsIslandDialog
                     updateBackend={() => {
-                        const key = 'overview-map-settings';
-                        dispatch(setOverviewMapSetting({socket, key}));
+                        const key = 'earth-view-map-settings';
+                        dispatch(setEarthViewMapSetting({socket, key}));
                     }}
                 />
 
@@ -1271,9 +1271,9 @@ const MapLibreOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     {liveMap ? <MapArrowControls mapObject={liveMap} verticalOffset={25}/> : null}
                 </div>
             </Box>
-            <OverviewAttributionBar htmlString={attributionHtml}/>
+            <EarthViewAttributionBar htmlString={attributionHtml}/>
         </Box>
     );
 };
 
-export default MapLibreOverviewMapRenderer;
+export default MapLibreEarthViewMapRenderer;

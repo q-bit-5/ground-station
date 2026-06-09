@@ -34,11 +34,11 @@ import {
     setShowSunIcon, setShowTerminatorLine, setShowTooltip, setTileLayerID, setMapEngine,
     setOpenMapSettingsDialog,
     setShowGrid,
-} from "./overview-slice.jsx";
+} from "./earthview-slice.jsx";
 
 function MapSettingsIslandDialog({updateBackend}) {
     const dispatch = useDispatch();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const {
         showPastOrbitPath,
         showFutureOrbitPath,
@@ -55,7 +55,7 @@ function MapSettingsIslandDialog({updateBackend}) {
         tileLayerID,
         mapEngine,
         openMapSettingsDialog,
-    } = useSelector(state => state.overviewSatTrack);
+    } = useSelector(state => state.earthViewTrack);
 
     const handleCloseDialog = () => {
         dispatch(setOpenMapSettingsDialog(false));

@@ -51,7 +51,7 @@ const SatelliteMarker = ({
                              handleSetTrackingOnBackend,
                          }) => {
     const navigate = useNavigate();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
 
     const normalizedTrackingIds = Array.isArray(trackingSatelliteIds)
         ? trackingSatelliteIds.map((id) => String(id))

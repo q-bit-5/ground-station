@@ -39,7 +39,7 @@ import {
 import { getClassNamesBasedOnGridEditing, islandTitleBarCompactSx, TitleBar } from '../common/common.jsx';
 import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
 import { toRowSelectionModel, toSelectedIds } from '../../utils/datagrid-selection.js';
-import ProgressFormatter from '../overview/progressbar-widget.jsx';
+import ProgressFormatter from '../earthview/progressbar-widget.jsx';
 
 const getPassBackgroundColor = (color, theme, coefficient) => ({
     backgroundColor: darken(color, coefficient),
@@ -320,7 +320,7 @@ const CelestialPasses = ({
     onRefresh = null,
     refreshDisabled = false,
 }) => {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const dispatch = useDispatch();
     const theme = useTheme();
     const isCompactHeader = useMediaQuery(theme.breakpoints.down('lg'));

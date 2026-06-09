@@ -946,7 +946,7 @@ const targetSatTrackSlice = createSlice({
             if (action.payload['tracking_state']) {
                 state.trackingState = action.payload['tracking_state'];
                 // Keep selected target in sync with backend tracking updates so
-                // consumers (e.g. overview map crosshair) follow target changes immediately.
+                // consumers (e.g. earth view map crosshair) follow target changes immediately.
                 state.satelliteId = resolveSatelliteIdFromTrackingState(action.payload['tracking_state']);
                 state.groupId = resolveGroupIdFromTrackingState(action.payload['tracking_state']);
                 if (normalizeTargetType(action.payload['tracking_state']) !== 'satellite') {

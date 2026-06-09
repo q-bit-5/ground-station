@@ -254,8 +254,8 @@ export const getNavigation = ({ showCelestial = false } = {}) => {
             title: i18n.t('operations', { ns: 'navigation', defaultValue: 'Operations' }),
         },
         {
-            segment: 'overview',
-            title: i18n.t('overview', { ns: 'navigation', defaultValue: 'Overview' }),
+            segment: 'earthview',
+            title: i18n.t('earthview', { ns: 'navigation', defaultValue: 'Earth view' }),
             icon: <PublicIcon/>,
         },
         ...(showCelestial

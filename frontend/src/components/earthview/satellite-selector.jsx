@@ -42,16 +42,16 @@ import {
     setSelectedSatGroupId,
     setSelectedSatellites,
     fetchSatellitesByGroupId,
-} from "./overview-slice.jsx";
+} from "./earthview-slice.jsx";
 import { useTranslation } from 'react-i18next';
 
 const SATELLITE_NUMBER_LIMIT = 200;
 
 
-const OverviewSatelliteGroupSelector = React.memo(function OverviewSatelliteGroupSelector() {
+const EarthViewSatelliteGroupSelector = React.memo(function EarthViewSatelliteGroupSelector() {
     const { socket } = useSocket();
     const dispatch = useDispatch();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     // const {
     //     satelliteGroupId,
     //     satGroups,
@@ -59,15 +59,15 @@ const OverviewSatelliteGroupSelector = React.memo(function OverviewSatelliteGrou
     //     selectedSatGroupId,
     //     gridEditable,
     //     passesLoading,
-    // } = useSelector(state => state.overviewSatTrack);
+    // } = useSelector(state => state.earthViewTrack);
 
     // Use separate selectors for better performance
-    const satelliteGroupId = useSelector(state => state.overviewSatTrack.satelliteGroupId);
-    const satGroups = useSelector(state => state.overviewSatTrack.satGroups);
-    const formGroupSelectError = useSelector(state => state.overviewSatTrack.formGroupSelectError);
-    const selectedSatGroupId = useSelector(state => state.overviewSatTrack.selectedSatGroupId);
-    const gridEditable = useSelector(state => state.overviewSatTrack.gridEditable);
-    const passesLoading = useSelector(state => state.overviewSatTrack.passesLoading);
+    const satelliteGroupId = useSelector(state => state.earthViewTrack.satelliteGroupId);
+    const satGroups = useSelector(state => state.earthViewTrack.satGroups);
+    const formGroupSelectError = useSelector(state => state.earthViewTrack.formGroupSelectError);
+    const selectedSatGroupId = useSelector(state => state.earthViewTrack.selectedSatGroupId);
+    const gridEditable = useSelector(state => state.earthViewTrack.gridEditable);
+    const passesLoading = useSelector(state => state.earthViewTrack.passesLoading);
 
     const ThemedSettingsDiv = styled('div')(({theme}) => ({
         backgroundColor: theme.palette.background.paper,
@@ -162,4 +162,4 @@ const OverviewSatelliteGroupSelector = React.memo(function OverviewSatelliteGrou
     );
 });
 
-export default OverviewSatelliteGroupSelector;
+export default EarthViewSatelliteGroupSelector;

@@ -14,7 +14,7 @@ const SatelliteTrackSuggestion = ({
                                       handleSetTrackingOnBackend
                                   }) => {
     const navigate = useNavigate();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
 
     if (!selectedSatellite) {
         return null;

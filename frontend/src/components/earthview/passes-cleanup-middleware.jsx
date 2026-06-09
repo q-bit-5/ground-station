@@ -18,7 +18,7 @@
  */
 
 
-import { setPasses } from './overview-slice.jsx';
+import { setPasses } from './earthview-slice.jsx';
 
 /**
  * Middleware that periodically removes expired satellite passes from the Redux store.
@@ -32,7 +32,7 @@ const passesCleanupMiddleware = (store) => {
     // Set up periodic cleanup every 10 seconds
     const cleanupInterval = setInterval(() => {
         const state = store.getState();
-        const passes = state.overviewSatTrack?.passes;
+        const passes = state.earthViewTrack?.passes;
 
         if (!passes || passes.length === 0) {
             return;

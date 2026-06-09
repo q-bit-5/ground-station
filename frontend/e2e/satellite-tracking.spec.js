@@ -49,14 +49,14 @@ test.describe('Satellite Tracking', () => {
   });
 });
 
-test.describe('Satellite Overview', () => {
+test.describe('Satellite Earth View', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
   });
 
   test('should display birds eye view map', async ({ page }) => {
-    // Check for map in overview
+    // Check for map in earth view
     const mapContainer = page.locator('.leaflet-container, .maplibregl-canvas').first();
     await expect(mapContainer).toBeVisible({ timeout: 10000 });
   });

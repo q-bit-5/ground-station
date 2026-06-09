@@ -31,7 +31,7 @@ import {DataGrid, gridClasses, useGridApiRef} from "@mui/x-data-grid";
 import { useDispatch, useSelector } from 'react-redux';
 import {alpha, darken, lighten, styled} from "@mui/material/styles";
 import {Box, Typography, IconButton, Tooltip, Button, Chip, useMediaQuery, useTheme} from '@mui/material';
-import ProgressFormatter from "../overview/progressbar-widget.jsx";
+import ProgressFormatter from "../earthview/progressbar-widget.jsx";
 import { useTranslation } from 'react-i18next';
 import { enUS, elGR } from '@mui/x-data-grid/locales';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -246,7 +246,7 @@ const DurationFormatter = React.memo(function DurationFormatter({params, event_s
 });
 
 const PassStatusCell = React.memo(function PassStatusCell({status}) {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const statusConfig = {
         live: {
             label: t('passes_table.status_visible'),

@@ -129,18 +129,18 @@ const resolveCompatibleTileLayerId = (tileLayerID, mapEngine) => {
 };
 
 
-export const getOverviewMapSettings = createAsyncThunk(
-    'overviewGroups/getOverviewMapSettings',
+export const getEarthViewMapSettings = createAsyncThunk(
+    'earthViewGroups/getEarthViewMapSettings',
     async ({socket}, {rejectWithValue}) => {
         return new Promise((resolve, reject) => {
             socket.emit("api.call", {
   cmd: 'get-map-settings',
-  data: 'overview-map-settings'
+  data: 'earth-view-map-settings'
 }, response => {
   if (response.success) {
     resolve(response.data['value']);
   } else {
-    reject(rejectWithValue("Failed getting the overview map settings from backend"));
+    reject(rejectWithValue("Failed getting the earth view map settings from backend"));
   }
 });
         });
@@ -148,31 +148,31 @@ export const getOverviewMapSettings = createAsyncThunk(
 );
 
 
-export const setOverviewMapSetting = createAsyncThunk(
-    'overviewGroups/setOverviewMapSetting',
+export const setEarthViewMapSetting = createAsyncThunk(
+    'earthViewGroups/setEarthViewMapSetting',
     async ({socket, key}, {getState, rejectWithValue}) => {
         const state = getState();
-        const mapEngine = normalizeMapEngine(state['overviewSatTrack']['mapEngine']);
+        const mapEngine = normalizeMapEngine(state['earthViewTrack']['mapEngine']);
         const mapZoomByEngine = buildMapZoomByEngine(
-            state['overviewSatTrack']['mapZoomByEngine'],
+            state['earthViewTrack']['mapZoomByEngine'],
             mapEngine,
-            state['overviewSatTrack']['mapZoomLevel']
+            state['earthViewTrack']['mapZoomLevel']
         );
         const mapZoomLevel = mapZoomByEngine[mapEngine];
         const mapSettings = {
-            showPastOrbitPath: state['overviewSatTrack']['showPastOrbitPath'],
-            showFutureOrbitPath: state['overviewSatTrack']['showFutureOrbitPath'],
-            showSatelliteCoverage: state['overviewSatTrack']['showSatelliteCoverage'],
-            showSunIcon: state['overviewSatTrack']['showSunIcon'],
-            showMoonIcon: state['overviewSatTrack']['showMoonIcon'],
-            showTerminatorLine: state['overviewSatTrack']['showTerminatorLine'],
-            showTooltip: state['overviewSatTrack']['showTooltip'],
-            showGrid: state['overviewSatTrack']['showGrid'],
-            pastOrbitLineColor: state['overviewSatTrack']['pastOrbitLineColor'],
-            futureOrbitLineColor: state['overviewSatTrack']['futureOrbitLineColor'],
-            satelliteCoverageColor: state['overviewSatTrack']['satelliteCoverageColor'],
-            orbitProjectionDuration: state['overviewSatTrack']['orbitProjectionDuration'],
-            tileLayerID: state['overviewSatTrack']['tileLayerID'],
+            showPastOrbitPath: state['earthViewTrack']['showPastOrbitPath'],
+            showFutureOrbitPath: state['earthViewTrack']['showFutureOrbitPath'],
+            showSatelliteCoverage: state['earthViewTrack']['showSatelliteCoverage'],
+            showSunIcon: state['earthViewTrack']['showSunIcon'],
+            showMoonIcon: state['earthViewTrack']['showMoonIcon'],
+            showTerminatorLine: state['earthViewTrack']['showTerminatorLine'],
+            showTooltip: state['earthViewTrack']['showTooltip'],
+            showGrid: state['earthViewTrack']['showGrid'],
+            pastOrbitLineColor: state['earthViewTrack']['pastOrbitLineColor'],
+            futureOrbitLineColor: state['earthViewTrack']['futureOrbitLineColor'],
+            satelliteCoverageColor: state['earthViewTrack']['satelliteCoverageColor'],
+            orbitProjectionDuration: state['earthViewTrack']['orbitProjectionDuration'],
+            tileLayerID: state['earthViewTrack']['tileLayerID'],
             mapEngine,
             mapZoomLevel,
             mapZoomByEngine,
@@ -198,7 +198,7 @@ export const setOverviewMapSetting = createAsyncThunk(
 
 
 export const fetchSatelliteData = createAsyncThunk(
-    'overviewGroups/fetchSatelliteData',
+    'earthViewGroups/fetchSatelliteData',
     async ({ socket, noradId }, { rejectWithValue }) => {
         return await new Promise((resolve, reject) => {
             socket.emit("api.call", {
@@ -217,7 +217,7 @@ export const fetchSatelliteData = createAsyncThunk(
 
 
 export const fetchSatelliteGroups = createAsyncThunk(
-    'overviewGroups/fetchSatelliteGroupsOverview',
+    'earthViewGroups/fetchSatelliteGroupsEarthView',
     async ({ socket }, { rejectWithValue }) => {
         return new Promise((resolve, reject) => {
             socket.emit("api.call", {
@@ -236,10 +236,10 @@ export const fetchSatelliteGroups = createAsyncThunk(
 
 
 export const fetchSatellitesByGroupId = createAsyncThunk(
-    'overviewGroups/fetchSatellitesByGroupIdOverview',
+    'earthViewGroups/fetchSatellitesByGroupIdEarthView',
     async ({ socket, satGroupId }, { rejectWithValue }) => {
         if (typeof satGroupId !== 'string' || satGroupId.trim() === '' || satGroupId === 'none') {
-            return rejectWithValue(`Invalid group id for overview satellites fetch: ${String(satGroupId)}`);
+            return rejectWithValue(`Invalid group id for earth view satellites fetch: ${String(satGroupId)}`);
         }
         return new Promise((resolve, reject) => {
             socket.emit("api.call", {
@@ -258,7 +258,7 @@ export const fetchSatellitesByGroupId = createAsyncThunk(
 
 
 export const fetchNextPassesForGroup = createAsyncThunk(
-    'overviewPasses/fetchNextPassesForGroup',
+    'earthViewPasses/fetchNextPassesForGroup',
     async ({ socket, selectedSatGroupId, hours, forceRecalculate = false }, { getState, rejectWithValue }) => {
         return new Promise((resolve, reject) => {
             socket.emit("api.call", {
@@ -287,8 +287,8 @@ export const fetchNextPassesForGroup = createAsyncThunk(
 );
 
 
-const overviewSlice = createSlice({
-    name: 'overviewSatTrack',
+const earthViewSlice = createSlice({
+    name: 'earthViewTrack',
     initialState: {
         selectedSatelliteId: "",
         satelliteData: {
@@ -638,22 +638,22 @@ const overviewSlice = createSlice({
                 state.loading = false;
                 state.error = action.payload;
             })
-            .addCase(setOverviewMapSetting.pending, (state) => {
+            .addCase(setEarthViewMapSetting.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(setOverviewMapSetting.fulfilled, (state, action) => {
+            .addCase(setEarthViewMapSetting.fulfilled, (state, action) => {
                 state.loading = false;
             })
-            .addCase(setOverviewMapSetting.rejected, (state, action) => {
+            .addCase(setEarthViewMapSetting.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             })
-            .addCase(getOverviewMapSettings.pending, (state) => {
+            .addCase(getEarthViewMapSettings.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(getOverviewMapSettings.fulfilled, (state, action) => {
+            .addCase(getEarthViewMapSettings.fulfilled, (state, action) => {
                 state.loading = false;
                 // Handle null/undefined payload for first-time users
                 if (action.payload) {
@@ -695,7 +695,7 @@ const overviewSlice = createSlice({
                     state.orbitProjectionDuration = action.payload['orbitProjectionDuration'];
                 }
             })
-            .addCase(getOverviewMapSettings.rejected, (state, action) => {
+            .addCase(getEarthViewMapSettings.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             });
@@ -744,6 +744,6 @@ export const {
     setPassesTableColumnVisibility,
     setRecentSatelliteGroups,
     addRecentSatelliteGroup,
-} = overviewSlice.actions;
+} = earthViewSlice.actions;
 
-export default overviewSlice.reducer;
+export default earthViewSlice.reducer;

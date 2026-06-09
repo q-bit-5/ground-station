@@ -35,7 +35,7 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {useTranslation} from 'react-i18next';
-import {gridLayoutStoreName as overviewGridLayoutName} from "../../overview/main-layout.jsx";
+import {gridLayoutStoreName as earthViewGridLayoutName} from "../../earthview/main-layout.jsx";
 import {gridLayoutStoreName as targetGridLayoutName} from "../../target/main-layout.jsx";
 import {gridLayoutStoreName as waterfallGridLayoutName} from "../../waterfall/main-layout.jsx";
 import {gridLayoutStoreName as celestialGridLayoutName} from "../../celestial/main-layout.jsx";
@@ -44,9 +44,9 @@ import {toast} from '../../../utils/toast-with-timestamp.jsx';
 
 const PAGE_LAYOUTS = [
     {
-        key: overviewGridLayoutName,
-        label: 'Overview',
-        description: 'Resets the widget layout on the Overview page',
+        key: earthViewGridLayoutName,
+        label: 'Earth view',
+        description: 'Resets the widget layout on the Earth view page',
     },
     {
         key: targetGridLayoutName,
@@ -285,7 +285,7 @@ const GridLayoutStorageCard = () => {
                     }}>
                         <Typography component="div" variant="body2" sx={{ fontSize: '0.813rem', color: 'text.primary' }}>
                             <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
-                                <li>Overview page</li>
+                                <li>Earth view page</li>
                                 <li>Target page</li>
                                 <li>Waterfall page</li>
                                 <li>Celestial page</li>

@@ -32,7 +32,7 @@ import synchronizeReducer from '../satellites/synchronize-slice.jsx';
 import preferencesReducer from '../settings/preferences-slice.jsx';
 import targetSatTrackReducer from '../target/target-slice.jsx'
 import trackerInstancesReducer from '../target/tracker-instances-slice.jsx';
-import overviewSatTrackReducer from '../overview/overview-slice.jsx';
+import earthViewTrackReducer from '../earthview/earthview-slice.jsx';
 import dashboardReducer from '../dashboard/dashboard-slice.jsx';
 import waterfallReducer from '../waterfall/waterfall-slice.jsx';
 import gnssReducer from '../waterfall/gnss-slice.jsx';
@@ -170,9 +170,9 @@ const targetSatTrackPersistConfig = {
     whitelist: ['passesTableSortModel', 'trackerId', 'lockOnTarget']
 };
 
-// Persist configuration for overview satellite tracking slice
-const overviewSatTrackPersistConfig = {
-    key: 'overviewSatTrack',
+// Persist configuration for earth view tracking slice
+const earthViewTrackPersistConfig = {
+    key: 'earthViewTrack',
     storage,
     whitelist: ['selectedSatGroupId', 'selectedSatelliteId', 'satellitesTableColumnVisibility', 'passesTablePageSize', 'satellitesTablePageSize', 'passesTableSortModel', 'satellitesTableSortModel', 'showGeostationarySatellites', 'mapEngine', 'mapZoomByEngine', 'mapZoomLevel']
 };
@@ -298,7 +298,7 @@ const persistedLocationReducer = persistReducer(locationPersistConfig, locationR
 const persistedSynchronizeReducer = persistReducer(synchronizePersistConfig, synchronizeReducer);
 const persistedPreferencesReducer = persistReducer(preferencesPersistConfig, preferencesReducer);
 const persistedTargetSatTrackReducer = persistReducer(targetSatTrackPersistConfig, targetSatTrackReducer);
-const persistedOverviewSatTrackReducer = persistReducer(overviewSatTrackPersistConfig, overviewSatTrackReducer);
+const persistedEarthViewTrackReducer = persistReducer(earthViewTrackPersistConfig, earthViewTrackReducer);
 const persistedDashboardReducer = persistReducer(dashboardPersistConfig, dashboardReducer);
 const persistedSdrReducer = persistReducer(sdrPersistConfig, sdrsReducer);
 const persistedVersionInfoReducer = persistReducer(versionInfoConfig, versionReducer);
@@ -331,7 +331,7 @@ export const store = configureStore({
         preferences: persistedPreferencesReducer,
         targetSatTrack: persistedTargetSatTrackReducer,
         trackerInstances: trackerInstancesReducer,
-        overviewSatTrack: persistedOverviewSatTrackReducer,
+        earthViewTrack: persistedEarthViewTrackReducer,
         dashboard: persistedDashboardReducer,
         sdrs: persistedSdrReducer,
         version: persistedVersionInfoReducer,

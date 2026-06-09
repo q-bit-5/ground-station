@@ -4,22 +4,22 @@ import { useSocket } from '../common/socket.jsx';
 import {
     fetchNextPassesForGroup,
     setShowGeostationarySatellites,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 import PassTimeline from '../passes/timeline/pass-timeline.jsx';
 
-const OverviewPassTimeline = () => {
+const EarthViewPassTimeline = () => {
     const dispatch = useDispatch();
     const { socket } = useSocket();
-    const passes = useSelector((state) => state.overviewSatTrack.passes);
-    const gridEditable = useSelector((state) => state.overviewSatTrack.gridEditable);
-    const nextPassesHours = useSelector((state) => state.overviewSatTrack.nextPassesHours);
-    const passesAreCached = useSelector((state) => state.overviewSatTrack.passesAreCached);
-    const passesLoading = useSelector((state) => state.overviewSatTrack.passesLoading);
-    const selectedSatGroupId = useSelector((state) => state.overviewSatTrack.selectedSatGroupId);
-    const selectedSatelliteId = useSelector((state) => state.overviewSatTrack.selectedSatelliteId);
-    const showGeostationarySatellites = useSelector((state) => state.overviewSatTrack.showGeostationarySatellites);
-    const passesRangeStart = useSelector((state) => state.overviewSatTrack.passesRangeStart);
-    const passesRangeEnd = useSelector((state) => state.overviewSatTrack.passesRangeEnd);
+    const passes = useSelector((state) => state.earthViewTrack.passes);
+    const gridEditable = useSelector((state) => state.earthViewTrack.gridEditable);
+    const nextPassesHours = useSelector((state) => state.earthViewTrack.nextPassesHours);
+    const passesAreCached = useSelector((state) => state.earthViewTrack.passesAreCached);
+    const passesLoading = useSelector((state) => state.earthViewTrack.passesLoading);
+    const selectedSatGroupId = useSelector((state) => state.earthViewTrack.selectedSatGroupId);
+    const selectedSatelliteId = useSelector((state) => state.earthViewTrack.selectedSatelliteId);
+    const showGeostationarySatellites = useSelector((state) => state.earthViewTrack.showGeostationarySatellites);
+    const passesRangeStart = useSelector((state) => state.earthViewTrack.passesRangeStart);
+    const passesRangeEnd = useSelector((state) => state.earthViewTrack.passesRangeEnd);
     const groundStationLocation = useSelector((state) => state.location.location);
     const timezone = useSelector(
         (state) => {
@@ -71,4 +71,4 @@ const OverviewPassTimeline = () => {
     );
 };
 
-export default React.memo(OverviewPassTimeline);
+export default React.memo(EarthViewPassTimeline);

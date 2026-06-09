@@ -44,8 +44,8 @@ import {
     setMapZoomLevel,
     setSelectedSatelliteId,
     setSelectedSatellitePositions,
-    setOverviewMapSetting,
-} from './overview-slice.jsx';
+    setEarthViewMapSetting,
+} from './earthview-slice.jsx';
 import {getMapCrsByTileLayerId, getTileLayerById, normalizeMapEngine} from '../common/tile-layers.jsx';
 import {homeIcon, satelliteIcon2, moonIcon, sunIcon} from '../common/dataurl-icons.jsx';
 import {
@@ -69,7 +69,7 @@ import {
     isSatelliteVisible,
 } from '../common/tracking-logic.jsx';
 
-import {setSatelliteData} from './overview-slice.jsx';
+import {setSatelliteData} from './earthview-slice.jsx';
 
 import SatelliteMarker from './map-tooltip.jsx';
 import createTerminatorLine from '../common/terminator-line.jsx';
@@ -93,14 +93,14 @@ L.Icon.Default.mergeOptions({
 });
 
 const satelliteIconDimCircle = L.divIcon({
-    className: 'overview-satellite-dim-icon',
+    className: 'earth-view-satellite-dim-icon',
     html: '<div style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8;border:1px solid #e0f2fe;box-shadow:0 0 0 1px rgba(0,0,0,0.45),0 0 5px rgba(56,189,248,0.45);"></div></div>',
     iconSize: [20, 20],
     iconAnchor: [10, 10],
     popupAnchor: [0, -10],
 });
 
-const overviewVisibleSatelliteIcon = L.divIcon({
+const earthViewVisibleSatelliteIcon = L.divIcon({
     className: satelliteIcon2.options.className,
     html: satelliteIcon2.options.html,
     iconSize: satelliteIcon2.options.iconSize,
@@ -109,7 +109,7 @@ const overviewVisibleSatelliteIcon = L.divIcon({
 });
 
 const CenterHomeButton = React.memo(function CenterHomeButton() {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const {location} = useSelector((state) => state.location);
 
     const handleClick = () => {
@@ -126,7 +126,7 @@ const CenterHomeButton = React.memo(function CenterHomeButton() {
 });
 
 const CenterMapButton = React.memo(function CenterMapButton() {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const targetCoordinates = [0, 0];
 
     const handleClick = () => {
@@ -141,7 +141,7 @@ const CenterMapButton = React.memo(function CenterMapButton() {
 });
 
 const FullscreenMapButton = React.memo(function FullscreenMapButton() {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
 
     const handleMapFullscreen = () => {
         MapObject.toggleFullscreen();
@@ -155,7 +155,7 @@ const FullscreenMapButton = React.memo(function FullscreenMapButton() {
 });
 
 const ZoomInButton = React.memo(function ZoomInButton() {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
 
     const handleClick = () => {
         if (!MapObject) return;
@@ -170,7 +170,7 @@ const ZoomInButton = React.memo(function ZoomInButton() {
 });
 
 const ZoomOutButton = React.memo(function ZoomOutButton() {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
 
     const handleClick = () => {
         if (!MapObject) return;
@@ -184,7 +184,7 @@ const ZoomOutButton = React.memo(function ZoomOutButton() {
     );
 });
 
-const OverviewAttributionBar = React.memo(function OverviewAttributionBar({ htmlString }) {
+const EarthViewAttributionBar = React.memo(function EarthViewAttributionBar({ htmlString }) {
     return (
         <MapStatusBar>
             <SimpleTruncatedHtml className={'attribution'} htmlString={htmlString}/>
@@ -204,10 +204,10 @@ function areSatellitesEquivalent(prev = [], next = []) {
     return true;
 }
 
-const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
+const LeafletEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
     const {socket} = useSocket();
     const dispatch = useDispatch();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const theme = useTheme();
     const {
         showPastOrbitPath,
@@ -232,10 +232,10 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
         selectedSatelliteId,
         selectedSatGroupId,
         loadingSatellites,
-    } = useSelector((state) => state.overviewSatTrack);
+    } = useSelector((state) => state.earthViewTrack);
 
     const selectedSatellites = useSelector(
-        (state) => state.overviewSatTrack.selectedSatellites,
+        (state) => state.earthViewTrack.selectedSatellites,
         areSatellitesEquivalent
     );
     const normalizedMapEngine = useMemo(
@@ -483,7 +483,7 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
 
                 if (selectedSatelliteId === satellite['norad_id']) {
                     // Get the recent state
-                    const recentSatData = store.getState().overviewSatTrack.satelliteData;
+                    const recentSatData = store.getState().earthViewTrack.satelliteData;
 
                     // Update state
                     dispatch(
@@ -659,7 +659,7 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                             targetNumberByNorad={targetNumberByNorad}
                             selectedSatelliteId={selectedSatelliteId}
                             markerEventHandlers={markerEventHandlers}
-                            satelliteIcon={isVisible ? overviewVisibleSatelliteIcon : satelliteIconDimCircle}
+                            satelliteIcon={isVisible ? earthViewVisibleSatelliteIcon : satelliteIconDimCircle}
                             opacity={1}
                             handleSetTrackingOnBackend={handleSetTrackingOnBackend}
                         />
@@ -669,7 +669,7 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                         <Marker
                             key={'marker-' + satellite['norad_id']}
                             position={[lat, lon]}
-                            icon={overviewVisibleSatelliteIcon}
+                            icon={earthViewVisibleSatelliteIcon}
                             eventHandlers={markerEventHandlers}
                             opacity={1}
                         ></Marker>
@@ -791,11 +791,11 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
             }, 120);
         };
 
-        window.addEventListener('overview-map-layout-change', handleLayoutChange);
+        window.addEventListener('earth-view-map-layout-change', handleLayoutChange);
 
         // Cleanup: clear the map invalidate interval when component unmounts
         return () => {
-            window.removeEventListener('overview-map-layout-change', handleLayoutChange);
+            window.removeEventListener('earth-view-map-layout-change', handleLayoutChange);
             initialInvalidateTimeoutsRef.current.forEach(clearTimeout);
             initialInvalidateTimeoutsRef.current = [];
             if (mapInvalidateIntervalRef.current) {
@@ -887,8 +887,8 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 </Backdrop>
                 {/* Leaflet CRS is immutable after map init, so remount when projection changes. */}
                 <MapContainer
-                    key={`overview-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
-                    className="overview-map"
+                    key={`earth-view-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
+                    className="earth-view-map"
                     fullscreenControl={true}
                     center={[0, 0]}
                     crs={mapCrs}
@@ -937,8 +937,8 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
 
                 <MapSettingsIslandDialog
                     updateBackend={() => {
-                        const key = 'overview-map-settings';
-                        dispatch(setOverviewMapSetting({socket, key: key}));
+                        const key = 'earth-view-map-settings';
+                        dispatch(setEarthViewMapSetting({socket, key: key}));
                     }}
                 />
 
@@ -1009,10 +1009,10 @@ const LeafletOverviewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 {/*    handleSetTrackingOnBackend={handleSetTrackingOnBackend}*/}
                 {/*/>*/}
                 </MapContainer>
-                <OverviewAttributionBar htmlString={attributionHtml}/>
+                <EarthViewAttributionBar htmlString={attributionHtml}/>
             </Box>
         </Box>
     );
 };
 
-export default LeafletOverviewMapRenderer;
+export default LeafletEarthViewMapRenderer;

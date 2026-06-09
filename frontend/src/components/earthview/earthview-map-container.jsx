@@ -19,17 +19,17 @@
 
 import {useSelector} from 'react-redux';
 import {normalizeMapEngine} from '../common/tile-layers.jsx';
-import LeafletOverviewMapRenderer from './overview-map-leaflet.jsx';
-import MapLibreOverviewMapRenderer from './overview-map-maplibre.jsx';
+import LeafletEarthViewMapRenderer from './earthview-map-leaflet.jsx';
+import MapLibreEarthViewMapRenderer from './earthview-map-maplibre.jsx';
 
-const OverviewMapContainer = ({handleSetTrackingOnBackend}) => {
-    const mapEngine = useSelector((state) => state.overviewSatTrack?.mapEngine);
+const EarthViewMapContainer = ({handleSetTrackingOnBackend}) => {
+    const mapEngine = useSelector((state) => state.earthViewTrack?.mapEngine);
     const normalizedMapEngine = normalizeMapEngine(mapEngine);
     const Renderer = normalizedMapEngine === 'maplibre'
-        ? MapLibreOverviewMapRenderer
-        : LeafletOverviewMapRenderer;
+        ? MapLibreEarthViewMapRenderer
+        : LeafletEarthViewMapRenderer;
 
     return <Renderer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>;
 };
 
-export default OverviewMapContainer;
+export default EarthViewMapContainer;

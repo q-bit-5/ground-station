@@ -136,34 +136,34 @@ export function setupTheme(themeName = 'dark') {
                     .leaflet-container {
                         background-color: ${theme.palette.background.default} !important;
                     }
-                    .leaflet-container.overview-map,
+                    .leaflet-container.earth-view-map,
                     .leaflet-container.target-map,
                     .leaflet-container.satellite-details-map,
-                    .leaflet-container.overview-map .leaflet-pane,
-                    .leaflet-container.overview-map .leaflet-pane *,
+                    .leaflet-container.earth-view-map .leaflet-pane,
+                    .leaflet-container.earth-view-map .leaflet-pane *,
                     .leaflet-container.target-map .leaflet-pane,
                     .leaflet-container.target-map .leaflet-pane *,
                     .leaflet-container.satellite-details-map .leaflet-pane,
                     .leaflet-container.satellite-details-map .leaflet-pane * {
                         cursor: default !important;
                     }
-                    .leaflet-container.overview-map .leaflet-marker-icon,
+                    .leaflet-container.earth-view-map .leaflet-marker-icon,
                     .leaflet-container.target-map .leaflet-marker-icon,
                     .leaflet-container.satellite-details-map .leaflet-marker-icon {
                         cursor: pointer !important;
                     }
-                    .leaflet-container.overview-map .overview-satellite-test-icon,
-                    .leaflet-container.overview-map .overview-satellite-test-icon *,
-                    .leaflet-container.overview-map .overview-satellite-dim-icon,
-                    .leaflet-container.overview-map .overview-satellite-dim-icon *,
-                    .leaflet-container.target-map .overview-satellite-test-icon,
-                    .leaflet-container.target-map .overview-satellite-test-icon *,
-                    .leaflet-container.target-map .overview-satellite-dim-icon,
-                    .leaflet-container.target-map .overview-satellite-dim-icon *,
-                    .leaflet-container.satellite-details-map .overview-satellite-test-icon,
-                    .leaflet-container.satellite-details-map .overview-satellite-test-icon *,
-                    .leaflet-container.satellite-details-map .overview-satellite-dim-icon,
-                    .leaflet-container.satellite-details-map .overview-satellite-dim-icon * {
+                    .leaflet-container.earth-view-map .earth-view-satellite-test-icon,
+                    .leaflet-container.earth-view-map .earth-view-satellite-test-icon *,
+                    .leaflet-container.earth-view-map .earth-view-satellite-dim-icon,
+                    .leaflet-container.earth-view-map .earth-view-satellite-dim-icon *,
+                    .leaflet-container.target-map .earth-view-satellite-test-icon,
+                    .leaflet-container.target-map .earth-view-satellite-test-icon *,
+                    .leaflet-container.target-map .earth-view-satellite-dim-icon,
+                    .leaflet-container.target-map .earth-view-satellite-dim-icon *,
+                    .leaflet-container.satellite-details-map .earth-view-satellite-test-icon,
+                    .leaflet-container.satellite-details-map .earth-view-satellite-test-icon *,
+                    .leaflet-container.satellite-details-map .earth-view-satellite-dim-icon,
+                    .leaflet-container.satellite-details-map .earth-view-satellite-dim-icon * {
                         cursor: pointer !important;
                     }
                     .leaflet-control-fullscreen {

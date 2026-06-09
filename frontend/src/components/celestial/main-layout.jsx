@@ -268,7 +268,7 @@ const defaultLayouts = {
 };
 
 const CelestialMainLayout = () => {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const dispatch = useDispatch();
     const { socket } = useSocket();
     const isEditing = useSelector((state) => state.dashboard?.isEditing);

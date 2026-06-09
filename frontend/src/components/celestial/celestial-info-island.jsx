@@ -115,7 +115,7 @@ const CelestialInfoIsland = ({
 }) => {
     const dispatch = useDispatch();
     const { socket } = useSocket();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const { timezone, locale } = useUserTimeSettings();
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const { trackingState, trackerViews } = useSelector((state) => state.targetSatTrack || {});

@@ -26,7 +26,7 @@ import { isSatelliteVisible } from '../components/common/tracking-logic.jsx';
 /**
  * Custom hook to calculate doppler-shifted neighboring transmitters.
  *
- * Updates every 3 seconds (similar to overview map satellite updates).
+ * Updates every 3 seconds (similar to earth view map satellite updates).
  * Filters transmitters from groupOfSats that fall within the active SDR bandwidth
  * and are currently visible (above horizon) from the observer's location.
  * Stores the results in the waterfall slice.

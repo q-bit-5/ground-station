@@ -43,7 +43,7 @@ import {
     fetchSatellitesByGroupId,
     fetchSatelliteGroups,
     setOpenSatellitesTableSettingsDialog,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 import { useTranslation } from 'react-i18next';
 import { enUS, elGR } from '@mui/x-data-grid/locales';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -138,7 +138,7 @@ const MemoizedStyledDataGrid = React.memo(({
                                                onSortModelChange,
                                                targetNumberByNorad = {},
                                             }) => {
-    const { t, i18n } = useTranslation('overview');
+    const { t, i18n } = useTranslation('earthview');
     const currentLanguage = i18n.language;
     const dataGridLocale = currentLanguage === 'el' ? elGR : enUS;
     const theme = useTheme();
@@ -517,7 +517,7 @@ const MemoizedStyledDataGrid = React.memo(({
 
 const SatelliteDetailsTable = React.memo(function SatelliteDetailsTable() {
     const dispatch = useDispatch();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const { socket } = useSocket();
     const theme = useTheme();
     const isCompactHeader = useMediaQuery(theme.breakpoints.down('lg'));
@@ -530,20 +530,20 @@ const SatelliteDetailsTable = React.memo(function SatelliteDetailsTable() {
     // Use ref-based selector to prevent re-renders from position updates
     const selectedSatellitePositionsRef = useRef(() => {
         const state = store.getState();
-        return state.overviewSatTrack.selectedSatellitePositions;
+        return state.earthViewTrack.selectedSatellitePositions;
     });
 
     // Use memoized selectors to prevent unnecessary rerenders
-    const selectedSatellites = useSelector(state => state.overviewSatTrack.selectedSatellites);
-    const gridEditable = useSelector(state => state.overviewSatTrack.gridEditable);
-    const loadingSatellites = useSelector(state => state.overviewSatTrack.loadingSatellites);
+    const selectedSatellites = useSelector(state => state.earthViewTrack.selectedSatellites);
+    const gridEditable = useSelector(state => state.earthViewTrack.gridEditable);
+    const loadingSatellites = useSelector(state => state.earthViewTrack.loadingSatellites);
     const selectedSatelliteId = useSelector(state => state.targetSatTrack?.satelliteData?.details?.norad_id);
-    const selectedSatGroupId = useSelector(state => state.overviewSatTrack.selectedSatGroupId);
+    const selectedSatGroupId = useSelector(state => state.earthViewTrack.selectedSatGroupId);
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
-    const columnVisibility = useSelector(state => state.overviewSatTrack.satellitesTableColumnVisibility);
-    const satellitesTablePageSize = useSelector(state => state.overviewSatTrack.satellitesTablePageSize);
-    const satellitesTableSortModel = useSelector(state => state.overviewSatTrack.satellitesTableSortModel);
-    const openSatellitesTableSettingsDialog = useSelector(state => state.overviewSatTrack.openSatellitesTableSettingsDialog);
+    const columnVisibility = useSelector(state => state.earthViewTrack.satellitesTableColumnVisibility);
+    const satellitesTablePageSize = useSelector(state => state.earthViewTrack.satellitesTablePageSize);
+    const satellitesTableSortModel = useSelector(state => state.earthViewTrack.satellitesTableSortModel);
+    const openSatellitesTableSettingsDialog = useSelector(state => state.earthViewTrack.openSatellitesTableSettingsDialog);
     const trackedSatelliteNoradIds = React.useMemo(() => {
         return trackerInstances
             .filter((instance) => {

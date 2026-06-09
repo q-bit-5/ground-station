@@ -40,13 +40,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
     setPassesTableColumnVisibility,
     setPassesTablePageSize,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 
 const PassesTableSettingsDialog = ({ open, onClose }) => {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const dispatch = useDispatch();
-    const columnVisibility = useSelector(state => state.overviewSatTrack.passesTableColumnVisibility);
-    const passesTablePageSize = useSelector(state => state.overviewSatTrack.passesTablePageSize);
+    const columnVisibility = useSelector(state => state.earthViewTrack.passesTableColumnVisibility);
+    const passesTablePageSize = useSelector(state => state.earthViewTrack.passesTablePageSize);
 
     const rowsPerPageOptions = [5, 10, 15, 20];
 

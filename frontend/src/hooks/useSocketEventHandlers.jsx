@@ -88,7 +88,7 @@ import {
 import { updateMetrics } from '../components/performance/performance-slice.jsx';
 import { setSystemInfo } from '../components/settings/system-info-slice.jsx';
 import { setRuntimeSnapshot } from '../components/settings/sessions-slice.jsx';
-import { fetchSatelliteGroups } from '../components/overview/overview-slice.jsx';
+import { fetchSatelliteGroups } from '../components/earthview/earthview-slice.jsx';
 import { addTranscription } from '../components/waterfall/transcription-slice.jsx';
 import { fetchSoapySDRServers } from '../components/hardware/sdr-slice.jsx';
 import ImageIcon from '@mui/icons-material/Image';

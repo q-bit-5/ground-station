@@ -34,7 +34,7 @@ import {
     AdminSystemMaintenancePage,
     AdminSystemPreferencesPage,
 } from "./components/settings/settings.jsx";
-import OverviewLayout from "./components/overview/main-layout.jsx";
+import EarthViewLayout from "./components/earthview/main-layout.jsx";
 import App from "./App.jsx";
 import Layout from "./components/dashboard/dashboard-layout.jsx";
 import TrackingLayout from "./components/target/main-layout.jsx";
@@ -70,12 +70,12 @@ const router = createBrowserRouter([
                 children: [
                     {
                         index: true,
-                        // Canonical landing page is /overview; keep / as a stable entry point.
-                        element: <Navigate to="/overview" replace />,
+                        // Canonical landing page is /earthview; keep / as a stable entry point.
+                        element: <Navigate to="/earthview" replace />,
                     },
                     {
-                        path: "overview",
-                        Component: OverviewLayout,
+                        path: "earthview",
+                        Component: EarthViewLayout,
                     },
                     {
                         path: "tracking",

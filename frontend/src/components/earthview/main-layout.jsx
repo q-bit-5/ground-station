@@ -26,7 +26,7 @@ import 'leaflet/dist/leaflet.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {absoluteStrategy} from 'react-grid-layout/core';
 import {duration, styled} from "@mui/material/styles";
-import OverviewSatelliteGroupSelector from "./satellite-selector.jsx";
+import EarthViewSatelliteGroupSelector from "./satellite-selector.jsx";
 import {
     StyledIslandParent,
     StyledIslandParentScrollbar,
@@ -39,23 +39,23 @@ import {useDispatch, useSelector} from "react-redux";
 import {useTranslation} from 'react-i18next';
 import {
     setGridEditable,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 import NextPassesGroupIsland from "./satellite-passes.jsx";
-import OverviewSatelliteInfoCard from "./satellite-info.jsx";
+import EarthViewSatelliteInfoCard from "./satellite-info.jsx";
 import { setRotator, setTrackerId, setTrackingStateInBackend } from "../target/target-slice.jsx";
-import OverviewMapContainer from './overview-map-container.jsx';
+import EarthViewMapContainer from './earthview-map-container.jsx';
 import SatelliteDetailsTable from "./satellites-table.jsx";
 import SatelliteGroupSelectorBar from "./satellite-group-selector-bar.jsx";
-import OverviewPassTimeline from './overview-pass-timeline.jsx';
+import EarthViewPassTimeline from './earthview-pass-timeline.jsx';
 import { useTargetRotatorSelectionDialog } from '../target/use-target-rotator-selection-dialog.jsx';
 
 // global callback for dashboard editing here
-const setGridEditableOverviewEvent = 'overview-set-grid-editable';
-export const handleSetGridEditableOverview = function (value) {
-    window.dispatchEvent(new CustomEvent(setGridEditableOverviewEvent, {detail: value}));
+const setGridEditableEarthViewEvent = 'earth-view-set-grid-editable';
+export const handleSetGridEditableEarthView = function (value) {
+    window.dispatchEvent(new CustomEvent(setGridEditableEarthViewEvent, {detail: value}));
 };
 
-export const gridLayoutStoreName = 'global-sat-track-layouts';
+export const gridLayoutStoreName = 'global-earth-view-layouts';
 const LAYOUT_SCHEMA_VERSION = 2;
 const SHARED_RESIZE_HANDLES = ['s', 'sw', 'w', 'se', 'nw', 'ne', 'e'];
 
@@ -114,12 +114,12 @@ const ThemedDiv = styled('div')(({theme}) => ({
     backgroundColor: theme.palette.background.paper,
 }));
 
-const OverviewLayout = React.memo(function OverviewLayout() {
+const EarthViewLayout = React.memo(function EarthViewLayout() {
     const {socket} = useSocket();
     const dispatch = useDispatch();
-    const {t} = useTranslation('overview');
-    const gridEditable = useSelector((state) => state.overviewSatTrack.gridEditable);
-    const selectedSatGroupId = useSelector((state) => state.overviewSatTrack.selectedSatGroupId);
+    const {t} = useTranslation('earthview');
+    const gridEditable = useSelector((state) => state.earthViewTrack.gridEditable);
+    const selectedSatGroupId = useSelector((state) => state.earthViewTrack.selectedSatGroupId);
     const {
         trackingState,
         trackerViews,
@@ -378,9 +378,9 @@ const OverviewLayout = React.memo(function OverviewLayout() {
             dispatch(setGridEditable(event.detail));
         };
 
-        window.addEventListener(setGridEditableOverviewEvent, onSetGridEditable);
+        window.addEventListener(setGridEditableEarthViewEvent, onSetGridEditable);
         return () => {
-            window.removeEventListener(setGridEditableOverviewEvent, onSetGridEditable);
+            window.removeEventListener(setGridEditableEarthViewEvent, onSetGridEditable);
         };
     }, [dispatch]);
 
@@ -474,7 +474,7 @@ const OverviewLayout = React.memo(function OverviewLayout() {
     function handleLayoutsChange(currentLayout, allLayouts) {
         const normalizedLayouts = normalizeLayoutsResizeHandles(allLayouts);
         setLayouts(normalizedLayouts);
-        window.dispatchEvent(new Event('overview-map-layout-change'));
+        window.dispatchEvent(new Event('earth-view-map-layout-change'));
     }
 
     useEffect(() => {
@@ -482,25 +482,25 @@ const OverviewLayout = React.memo(function OverviewLayout() {
     }, [layouts]);
 
     function handleLayoutWidthChange() {
-        window.dispatchEvent(new Event('overview-map-layout-change'));
+        window.dispatchEvent(new Event('earth-view-map-layout-change'));
     }
 
     // pre-made ResponsiveGridLayout
     let gridContents = [
         <StyledIslandParent key="map">
-            <OverviewMapContainer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>
+            <EarthViewMapContainer handleSetTrackingOnBackend={handleSetTrackingOnBackend}/>
         </StyledIslandParent>,
         <StyledIslandParentNoScrollbar key="passes">
             <NextPassesGroupIsland/>
         </StyledIslandParentNoScrollbar>,
         <StyledIslandParentNoScrollbar key="sat-info">
-            <OverviewSatelliteInfoCard/>
+            <EarthViewSatelliteInfoCard/>
         </StyledIslandParentNoScrollbar>,
         <StyledIslandParentNoScrollbar key="satellite-group">
             <SatelliteDetailsTable/>
         </StyledIslandParentNoScrollbar>,
         <StyledIslandParentNoScrollbar key="timeline">
-            <OverviewPassTimeline/>
+            <EarthViewPassTimeline/>
         </StyledIslandParentNoScrollbar>,
     ];
 
@@ -533,4 +533,4 @@ const OverviewLayout = React.memo(function OverviewLayout() {
     );
 });
 
-export default OverviewLayout;
+export default EarthViewLayout;

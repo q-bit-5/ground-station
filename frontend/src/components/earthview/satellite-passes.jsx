@@ -52,7 +52,7 @@ import {
     updatePassesWithElevationCurves,
     setPassesTableColumnVisibility,
     setOpenPassesTableSettingsDialog,
-} from './overview-slice.jsx';
+} from './earthview-slice.jsx';
 import {Typography, Box, IconButton, Tooltip, Button, useMediaQuery, useTheme} from '@mui/material';
 import {useGridApiRef, GridPagination} from '@mui/x-data-grid';
 import {alpha, darken, lighten, styled} from '@mui/material/styles';
@@ -364,7 +364,7 @@ const TimeFormatter = React.memo(function TimeFormatter({params, value, nowMs}) 
 
 
 const DurationFormatter = React.memo(function DurationFormatter({params, event_start, event_end, nowMs}) {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const now = new Date(nowMs);
     const startDate = new Date(event_start);
     const endDate = new Date(event_end);
@@ -400,7 +400,7 @@ const DurationFormatter = React.memo(function DurationFormatter({params, event_s
 });
 
 const PassStatusCell = React.memo(function PassStatusCell({status, isTracked = false, targetNumber = null}) {
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const markerSize = 17;
     const statusConfig = {
         live: {
@@ -630,7 +630,7 @@ const MemoizedStyledDataGrid = React.memo(function MemoizedStyledDataGrid({
 }) {
     const apiRef = useGridApiRef();
     const store = useStore();
-    const { t, i18n } = useTranslation('overview');
+    const { t, i18n } = useTranslation('earthview');
     const theme = useTheme();
     const isCompactView = useMediaQuery(theme.breakpoints.down('md'));
     const currentLanguage = i18n.language;
@@ -648,7 +648,7 @@ const MemoizedStyledDataGrid = React.memo(function MemoizedStyledDataGrid({
 
     const selectedSatellitePositionsRef = useRef(() => {
         const state = store.getState();
-        return state.overviewSatTrack.selectedSatellitePositions;
+        return state.earthViewTrack.selectedSatellitePositions;
     });
 
     useEffect(() => {
@@ -1026,7 +1026,7 @@ const MemoizedStyledDataGrid = React.memo(function MemoizedStyledDataGrid({
 const NextPassesGroupIsland = React.memo(function NextPassesGroupIsland() {
     const {socket} = useSocket();
     const dispatch = useDispatch();
-    const { t } = useTranslation('overview');
+    const { t } = useTranslation('earthview');
     const theme = useTheme();
     const isCompactHeader = useMediaQuery(theme.breakpoints.down('lg'));
     const isTightHeader = useMediaQuery(theme.breakpoints.down('md'));
@@ -1052,7 +1052,7 @@ const NextPassesGroupIsland = React.memo(function NextPassesGroupIsland() {
         passesTableColumnVisibility,
         openPassesTableSettingsDialog,
         selectedSatellites
-    } = useSelector(state => state.overviewSatTrack);
+    } = useSelector(state => state.earthViewTrack);
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const { location } = useSelector(state => state.location);
 

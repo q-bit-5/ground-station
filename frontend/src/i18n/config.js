@@ -27,7 +27,7 @@ import hardwareEN from './locales/en/hardware.json';
 import settingsEN from './locales/en/settings.json';
 import satellitesEN from './locales/en/satellites.json';
 import trackingEN from './locales/en/tracking.json';
-import overviewEN from './locales/en/overview.json';
+import earthviewEN from './locales/en/earthview.json';
 import targetEN from './locales/en/target.json';
 import dashboardEN from './locales/en/dashboard.json';
 import waterfallEN from './locales/en/waterfall.json';
@@ -39,7 +39,7 @@ import hardwareEL from './locales/el/hardware.json';
 import settingsEL from './locales/el/settings.json';
 import satellitesEL from './locales/el/satellites.json';
 import trackingEL from './locales/el/tracking.json';
-import overviewEL from './locales/el/overview.json';
+import earthviewEL from './locales/el/earthview.json';
 import targetEL from './locales/el/target.json';
 import dashboardEL from './locales/el/dashboard.json';
 import waterfallEL from './locales/el/waterfall.json';
@@ -51,7 +51,7 @@ import hardwareFR from './locales/fr/hardware.json';
 import settingsFR from './locales/fr/settings.json';
 import satellitesFR from './locales/fr/satellites.json';
 import trackingFR from './locales/fr/tracking.json';
-import overviewFR from './locales/fr/overview.json';
+import earthviewFR from './locales/fr/earthview.json';
 import targetFR from './locales/fr/target.json';
 import dashboardFR from './locales/fr/dashboard.json';
 import waterfallFR from './locales/fr/waterfall.json';
@@ -63,7 +63,7 @@ import hardwareES from './locales/es/hardware.json';
 import settingsES from './locales/es/settings.json';
 import satellitesES from './locales/es/satellites.json';
 import trackingES from './locales/es/tracking.json';
-import overviewES from './locales/es/overview.json';
+import earthviewES from './locales/es/earthview.json';
 import targetES from './locales/es/target.json';
 import dashboardES from './locales/es/dashboard.json';
 import waterfallES from './locales/es/waterfall.json';
@@ -75,7 +75,7 @@ import hardwareDE from './locales/de/hardware.json';
 import settingsDE from './locales/de/settings.json';
 import satellitesDE from './locales/de/satellites.json';
 import trackingDE from './locales/de/tracking.json';
-import overviewDE from './locales/de/overview.json';
+import earthviewDE from './locales/de/earthview.json';
 import targetDE from './locales/de/target.json';
 import dashboardDE from './locales/de/dashboard.json';
 import waterfallDE from './locales/de/waterfall.json';
@@ -87,7 +87,7 @@ import hardwareNL from './locales/nl/hardware.json';
 import settingsNL from './locales/nl/settings.json';
 import satellitesNL from './locales/nl/satellites.json';
 import trackingNL from './locales/nl/tracking.json';
-import overviewNL from './locales/nl/overview.json';
+import earthviewNL from './locales/nl/earthview.json';
 import targetNL from './locales/nl/target.json';
 import dashboardNL from './locales/nl/dashboard.json';
 import waterfallNL from './locales/nl/waterfall.json';
@@ -99,7 +99,7 @@ import hardwareIT from './locales/it/hardware.json';
 import settingsIT from './locales/it/settings.json';
 import satellitesIT from './locales/it/satellites.json';
 import trackingIT from './locales/it/tracking.json';
-import overviewIT from './locales/it/overview.json';
+import earthviewIT from './locales/it/earthview.json';
 import targetIT from './locales/it/target.json';
 import dashboardIT from './locales/it/dashboard.json';
 import waterfallIT from './locales/it/waterfall.json';
@@ -113,7 +113,7 @@ const resources = {
         settings: settingsEN,
         satellites: satellitesEN,
         tracking: trackingEN,
-        overview: overviewEN,
+        earthview: earthviewEN,
         target: targetEN,
         dashboard: dashboardEN,
         waterfall: waterfallEN,
@@ -126,7 +126,7 @@ const resources = {
         settings: settingsEL,
         satellites: satellitesEL,
         tracking: trackingEL,
-        overview: overviewEL,
+        earthview: earthviewEL,
         target: targetEL,
         dashboard: dashboardEL,
         waterfall: waterfallEL,
@@ -139,7 +139,7 @@ const resources = {
         settings: settingsFR,
         satellites: satellitesFR,
         tracking: trackingFR,
-        overview: overviewFR,
+        earthview: earthviewFR,
         target: targetFR,
         dashboard: dashboardFR,
         waterfall: waterfallFR,
@@ -152,7 +152,7 @@ const resources = {
         settings: settingsES,
         satellites: satellitesES,
         tracking: trackingES,
-        overview: overviewES,
+        earthview: earthviewES,
         target: targetES,
         dashboard: dashboardES,
         waterfall: waterfallES,
@@ -165,7 +165,7 @@ const resources = {
         settings: settingsDE,
         satellites: satellitesDE,
         tracking: trackingDE,
-        overview: overviewDE,
+        earthview: earthviewDE,
         target: targetDE,
         dashboard: dashboardDE,
         waterfall: waterfallDE,
@@ -178,7 +178,7 @@ const resources = {
         settings: settingsNL,
         satellites: satellitesNL,
         tracking: trackingNL,
-        overview: overviewNL,
+        earthview: earthviewNL,
         target: targetNL,
         dashboard: dashboardNL,
         waterfall: waterfallNL,
@@ -191,7 +191,7 @@ const resources = {
         settings: settingsIT,
         satellites: satellitesIT,
         tracking: trackingIT,
-        overview: overviewIT,
+        earthview: earthviewIT,
         target: targetIT,
         dashboard: dashboardIT,
         waterfall: waterfallIT,

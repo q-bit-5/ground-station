@@ -56,7 +56,7 @@ const ReduxPersistentSettingsCard = () => {
             'persist:synchronize',
             'persist:preferences',
             'persist:targetSatTrack',
-            'persist:overviewSatTrack',
+            'persist:earthViewTrack',
             'persist:dashboard',
             'persist:weather',
             'persist:sdr',
@@ -95,8 +95,8 @@ const ReduxPersistentSettingsCard = () => {
         localStorage.removeItem('persist:preferences');
     };
 
-    const clearOverviewSatTrackPersist = () => {
-        localStorage.removeItem('persist:overviewSatTrack');
+    const clearEarthViewTrackPersist = () => {
+        localStorage.removeItem('persist:earthViewTrack');
     };
 
     const clearCelestialPersist = () => {
@@ -255,9 +255,9 @@ const ReduxPersistentSettingsCard = () => {
                 </Grid>
 
                 <Grid size={10}>
-                    Clear Overview Satellite Selection
+                    Clear Earth view Satellite Selection
                     <Typography variant="body2" color="text.secondary">
-                        Resets selected satellite group and satellite in overview page
+                        Resets selected satellite group and satellite in earth view page
                     </Typography>
                 </Grid>
                 <Grid size={6}>
@@ -265,10 +265,10 @@ const ReduxPersistentSettingsCard = () => {
                         variant="outlined"
                         color="warning"
                         onClick={() => openIndividualConfirmDialog(
-                            'Clear Overview Satellite Selection?',
-                            'This will reset selected satellite group and satellite on the Overview page.',
+                            'Clear Earth view Satellite Selection?',
+                            'This will reset selected satellite group and satellite on the Earth view page.',
                             'Clear Selection',
-                            clearOverviewSatTrackPersist,
+                            clearEarthViewTrackPersist,
                         )}
                         fullWidth
                         size="small"

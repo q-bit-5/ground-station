@@ -29,7 +29,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import Paper from "@mui/material/Paper";
 import Tabs, { tabsClasses } from '@mui/material/Tabs';
-import {gridLayoutStoreName as overviewGridLayoutName} from '../overview/main-layout.jsx';
+import {gridLayoutStoreName as earthViewGridLayoutName} from '../earthview/main-layout.jsx';
 import {gridLayoutStoreName as targetGridLayoutName} from '../target/main-layout.jsx';
 import Grid from "@mui/material/Grid";
 import AntennaRotatorTable from "../hardware/rotator-table.jsx";
