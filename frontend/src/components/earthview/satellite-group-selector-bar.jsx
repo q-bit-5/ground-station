@@ -20,11 +20,13 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useStore } from "react-redux";
-import { Box, FormControl, InputLabel, Select, MenuItem, Chip, Menu, Typography, Tooltip, Button, useMediaQuery, useTheme } from "@mui/material";
+import { Box, FormControl, InputLabel, Select, MenuItem, Chip, Menu, Typography, Tooltip, Button, useMediaQuery, useTheme, ListSubheader, Stack } from "@mui/material";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import FolderSharedOutlinedIcon from '@mui/icons-material/FolderSharedOutlined';
 import { useTranslation } from 'react-i18next';
 import { useSocket } from "../common/socket.jsx";
 import {
@@ -159,6 +161,7 @@ const SatelliteGroupSelectorBar = React.memo(function SatelliteGroupSelectorBar(
             id: group.id,
             name: group.name,
             satelliteCount: group.satellite_ids?.length || 0,
+            type: group.type,
         }));
 
         if (normalizedGroups.length <= 1) {
@@ -257,9 +260,19 @@ const SatelliteGroupSelectorBar = React.memo(function SatelliteGroupSelectorBar(
         setAnchorEl(null);
     };
 
+    const getGroupOptionIcon = useCallback((groupType) => {
+        const normalizedType = String(groupType || '').toLowerCase();
+        if (normalizedType === 'user') {
+            return <FolderSharedOutlinedIcon fontSize="small" sx={{ color: 'primary.main' }} />;
+        }
+        return <FolderOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />;
+    }, []);
+
     // Determine which pills are hidden (not visible in container)
     const hiddenPills = rankedGroups.filter(group => !visiblePillIds.has(group.id));
     const hasHiddenPills = hiddenPills.length > 0;
+    const userRankedGroups = rankedGroups.filter((group) => String(group.type || '').toLowerCase() === 'user');
+    const tleRankedGroups = rankedGroups.filter((group) => String(group.type || '').toLowerCase() !== 'user');
 
     // Use the state variable for visible satellite counts (updated periodically)
     const { total: visibleSatellitesCount, rising: risingCount, peak: peakCount, falling: fallingCount } = visibleSatStats;
@@ -303,18 +316,41 @@ const SatelliteGroupSelectorBar = React.memo(function SatelliteGroupSelectorBar(
                     <MenuItem value="none" key="none">
                         [select group]
                     </MenuItem>
-                    {rankedGroups.length === 0 ? (
+                    <ListSubheader>{t('satellite_selector.user_groups')}</ListSubheader>
+                    {userRankedGroups.length === 0 ? (
                         <MenuItem disabled value="" key="none-defined">
                             {t('satellite_selector.none_defined')}
                         </MenuItem>
                     ) : (
-                        rankedGroups.map((group) => (
+                        userRankedGroups.map((group) => (
                             <MenuItem
                                 disabled={group.satelliteCount > SATELLITE_NUMBER_LIMIT}
                                 value={group.id}
                                 key={group.id}
                             >
-                                {group.name} ({group.satelliteCount})
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    {getGroupOptionIcon(group.type)}
+                                    <span>{group.name} ({group.satelliteCount})</span>
+                                </Stack>
+                            </MenuItem>
+                        ))
+                    )}
+                    <ListSubheader>{t('satellite_selector.tle_groups')}</ListSubheader>
+                    {tleRankedGroups.length === 0 ? (
+                        <MenuItem disabled value="" key="none-defined-tle">
+                            {t('satellite_selector.none_defined')}
+                        </MenuItem>
+                    ) : (
+                        tleRankedGroups.map((group) => (
+                            <MenuItem
+                                disabled={group.satelliteCount > SATELLITE_NUMBER_LIMIT}
+                                value={group.id}
+                                key={group.id}
+                            >
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    {getGroupOptionIcon(group.type)}
+                                    <span>{group.name} ({group.satelliteCount})</span>
+                                </Stack>
                             </MenuItem>
                         ))
                     )}
