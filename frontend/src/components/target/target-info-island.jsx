@@ -1306,6 +1306,7 @@ const TargetInfoIsland = () => {
                                         bodyId={nonSatelliteIdentifier}
                                         size={44}
                                         alt={nonSatelliteTargetName || 'Target'}
+                                        showMoonPhase={targetType === 'body'}
                                     />
                                 </Box>
                             </Box>

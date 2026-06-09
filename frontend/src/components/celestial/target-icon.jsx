@@ -9,6 +9,7 @@ const TargetIcon = ({
     size = 24,
     alt = 'target icon',
     sx = {},
+    showMoonPhase = false,
 }) => {
     const normalizedTargetType = String(targetType || '').toLowerCase();
 
@@ -19,6 +20,7 @@ const TargetIcon = ({
                 size={size}
                 alt={alt}
                 sx={sx}
+                showMoonPhase={showMoonPhase}
             />
         );
     }

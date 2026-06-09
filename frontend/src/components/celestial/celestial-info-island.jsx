@@ -393,6 +393,7 @@ const CelestialInfoIsland = ({
                                             bodyId={targetIdentifier}
                                             size={44}
                                             alt={targetName || 'Body'}
+                                            showMoonPhase={targetType === 'body'}
                                         />
                                         <Box sx={{ minWidth: 0 }}>
                                             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.15 }}>

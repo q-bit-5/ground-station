@@ -1,16 +1,28 @@
 import React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { resolveBodyIconPath } from './icon-catalog.js';
+import MoonPhaseOverlay from './moon-phase-overlay.jsx';
+
+const isMoonBodyId = (bodyId) => {
+    const normalized = String(bodyId || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^body:/, '')
+        .replace(/[_\s]+/g, '-');
+    return normalized === 'moon' || normalized === 'luna';
+};
 
 const BodyIcon = ({
     bodyId = '',
     size = 24,
     alt = 'body icon',
     sx = {},
+    showMoonPhase = false,
 }) => {
     const path = resolveBodyIconPath(bodyId, size);
     const numericSize = Number(size);
     const iconSize = Number.isFinite(numericSize) ? numericSize : (size || 24);
+    const shouldShowMoonPhase = Boolean(showMoonPhase && isMoonBodyId(bodyId));
     const [failed, setFailed] = React.useState(false);
     const [loaded, setLoaded] = React.useState(false);
     const spinnerSize = Number.isFinite(numericSize)
@@ -69,6 +81,7 @@ const BodyIcon = ({
                     transition: 'opacity 120ms linear',
                 }}
             />
+            <MoonPhaseOverlay enabled={shouldShowMoonPhase && loaded} />
         </Box>
     );
 };
