@@ -22,6 +22,7 @@ const CelestialToolbar = ({
     fullscreen = false,
     fullscreenLabel = 'Go fullscreen',
     exitFullscreenLabel = 'Exit fullscreen',
+    showZoomButtons = true,
     disabled = false,
 }) => {
     return (
@@ -62,42 +63,46 @@ const CelestialToolbar = ({
                                 </IconButton>
                             </span>
                         </Tooltip>
-                        <Tooltip title="Zoom in">
-                            <span>
-                                <IconButton
-                                    onClick={onZoomIn}
-                                    disabled={disabled}
-                                    color="primary"
-                                    sx={{ borderRadius: 0 }}
-                                >
-                                    <ZoomInIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                        <Tooltip title="Zoom out">
-                            <span>
-                                <IconButton
-                                    onClick={onZoomOut}
-                                    disabled={disabled}
-                                    color="primary"
-                                    sx={{ borderRadius: 0 }}
-                                >
-                                    <ZoomOutIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                        <Tooltip title="Reset zoom">
-                            <span>
-                                <IconButton
-                                    onClick={onZoomReset}
-                                    disabled={disabled}
-                                    color="primary"
-                                    sx={{ borderRadius: 0 }}
-                                >
-                                    <ResetZoomIcon />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
+                        {showZoomButtons ? (
+                            <>
+                                <Tooltip title="Zoom in">
+                                    <span>
+                                        <IconButton
+                                            onClick={onZoomIn}
+                                            disabled={disabled}
+                                            color="primary"
+                                            sx={{ borderRadius: 0 }}
+                                        >
+                                            <ZoomInIcon />
+                                        </IconButton>
+                                    </span>
+                                </Tooltip>
+                                <Tooltip title="Zoom out">
+                                    <span>
+                                        <IconButton
+                                            onClick={onZoomOut}
+                                            disabled={disabled}
+                                            color="primary"
+                                            sx={{ borderRadius: 0 }}
+                                        >
+                                            <ZoomOutIcon />
+                                        </IconButton>
+                                    </span>
+                                </Tooltip>
+                                <Tooltip title="Reset zoom">
+                                    <span>
+                                        <IconButton
+                                            onClick={onZoomReset}
+                                            disabled={disabled}
+                                            color="primary"
+                                            sx={{ borderRadius: 0 }}
+                                        >
+                                            <ResetZoomIcon />
+                                        </IconButton>
+                                    </span>
+                                </Tooltip>
+                            </>
+                        ) : null}
                         <Tooltip title="Center on Sun">
                             <span>
                                 <IconButton

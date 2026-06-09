@@ -353,6 +353,8 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
         mapEngine,
         mapZoomLevel,
         showGrid,
+        enableMapDragging,
+        enableMapZooming,
         selectedSatelliteId,
         selectedSatGroupId,
         loadingSatellites,
@@ -916,10 +918,10 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     mapStyle={mapStyle}
                     attributionControl={false}
                     initialViewState={{longitude: 0, latitude: 0, zoom: mapZoomLevel}}
-                    dragPan={false}
-                    scrollZoom={false}
-                    touchZoomRotate={false}
-                    doubleClickZoom={false}
+                    dragPan={enableMapDragging}
+                    scrollZoom={enableMapZooming}
+                    touchZoomRotate={enableMapZooming}
+                    doubleClickZoom={enableMapZooming}
                     keyboard={false}
                     renderWorldCopies={false}
                     transformConstrain={preserveRequestedZoomConstrain}
@@ -1248,17 +1250,19 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     </Fab>
                 </Box>
 
-                <Box
-                    sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
-                    style={{left: 5, top: 5, position: 'absolute'}}
-                >
-                    <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleZoomIn}>
-                        <ZoomInIcon/>
-                    </Fab>
-                    <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleZoomOut}>
-                        <ZoomOutIcon/>
-                    </Fab>
-                </Box>
+                {!enableMapZooming ? (
+                    <Box
+                        sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
+                        style={{left: 5, top: 5, position: 'absolute'}}
+                    >
+                        <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleZoomIn}>
+                            <ZoomInIcon/>
+                        </Fab>
+                        <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleZoomOut}>
+                            <ZoomOutIcon/>
+                        </Fab>
+                    </Box>
+                ) : null}
 
                 <MapSettingsIslandDialog
                     updateBackend={() => {
@@ -1267,9 +1271,11 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     }}
                 />
 
-                <div ref={arrowControlsRef}>
-                    {liveMap ? <MapArrowControls mapObject={liveMap} verticalOffset={25}/> : null}
-                </div>
+                {!enableMapDragging ? (
+                    <div ref={arrowControlsRef}>
+                        {liveMap ? <MapArrowControls mapObject={liveMap} verticalOffset={25}/> : null}
+                    </div>
+                ) : null}
             </Box>
             <EarthViewAttributionBar htmlString={attributionHtml}/>
         </Box>

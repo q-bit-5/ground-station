@@ -369,6 +369,8 @@ const SolarSystemCanvas = ({
     resetZoomSignal = 0,
     centerSunSignal = 0,
     initialViewport = null,
+    enableMapDragging = true,
+    enableMapZooming = true,
     onViewportCommit = null,
     displayOptions = DEFAULT_DISPLAY_OPTIONS,
 }) => {
@@ -402,6 +404,8 @@ const SolarSystemCanvas = ({
     });
 
     const [viewport, setViewport] = useState(() => normalizeViewport(initialViewport || DEFAULT_VIEWPORT));
+    const isDragInteractionEnabled = Boolean(enableMapDragging);
+    const isZoomInteractionEnabled = Boolean(enableMapZooming);
     const effectiveLocale = useMemo(
         () => locale || (typeof navigator !== 'undefined' ? navigator.language : undefined),
         [locale],
@@ -1511,6 +1515,7 @@ const SolarSystemCanvas = ({
     }, [cancelViewportAnimation]);
 
     const handlePointerDown = (event) => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) return;
         if (event.pointerType === 'touch') return;
         if (event.pointerType === 'mouse' && event.button !== 0) return;
         hasPersistentViewportRef.current = true;
@@ -1522,6 +1527,7 @@ const SolarSystemCanvas = ({
 
         const activeCount = activePointersRef.current.size;
         if (activeCount === 1) {
+            if (!isDragInteractionEnabled) return;
             gestureRef.current.mode = 'pan';
             gestureRef.current.lastCenterX = event.clientX;
             gestureRef.current.lastCenterY = event.clientY;
@@ -1540,13 +1546,14 @@ const SolarSystemCanvas = ({
     };
 
     const handlePointerMove = (event) => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) return;
         if (!activePointersRef.current.has(event.pointerId)) return;
         activePointersRef.current.set(event.pointerId, {
             x: event.clientX,
             y: event.clientY,
         });
 
-        if (activePointersRef.current.size === 1 && gestureRef.current.mode === 'pan') {
+        if (isDragInteractionEnabled && activePointersRef.current.size === 1 && gestureRef.current.mode === 'pan') {
             const dx = event.clientX - gestureRef.current.lastCenterX;
             const dy = event.clientY - gestureRef.current.lastCenterY;
             gestureRef.current.lastCenterX = event.clientX;
@@ -1571,11 +1578,11 @@ const SolarSystemCanvas = ({
             const rect = container.getBoundingClientRect();
             const width = rect.width;
             const height = rect.height;
-            const zoomRatio = gesture.distance / gestureRef.current.lastDistance;
+            const zoomRatio = isZoomInteractionEnabled ? (gesture.distance / gestureRef.current.lastDistance) : 1;
             const anchorX = gestureRef.current.lastCenterX - rect.left;
             const anchorY = gestureRef.current.lastCenterY - rect.top;
-            const nextCenterX = gesture.centerX - rect.left;
-            const nextCenterY = gesture.centerY - rect.top;
+            const nextCenterX = isDragInteractionEnabled ? (gesture.centerX - rect.left) : anchorX;
+            const nextCenterY = isDragInteractionEnabled ? (gesture.centerY - rect.top) : anchorY;
 
             setViewport((prev) => {
                 const nextZoom = clamp(prev.zoom * zoomRatio, MIN_ZOOM, MAX_ZOOM);
@@ -1602,6 +1609,7 @@ const SolarSystemCanvas = ({
     };
 
     const handlePointerUp = (event) => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) return;
         activePointersRef.current.delete(event.pointerId);
 
         if (!activePointersRef.current.size) {
@@ -1634,6 +1642,7 @@ const SolarSystemCanvas = ({
     };
 
     const handleTouchStart = (event) => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) return;
         if (event.touches.length < 2) return;
         hasPersistentViewportRef.current = true;
         const touch1 = event.touches[0];
@@ -1649,6 +1658,7 @@ const SolarSystemCanvas = ({
     };
 
     const handleTouchMove = (event) => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) return;
         if (event.touches.length < 2 || !touchGestureRef.current.active) return;
         const container = containerRef.current;
         if (!container) return;
@@ -1661,11 +1671,11 @@ const SolarSystemCanvas = ({
         const rect = container.getBoundingClientRect();
         const width = rect.width;
         const height = rect.height;
-        const zoomRatio = distance / touchGestureRef.current.lastDistance;
+        const zoomRatio = isZoomInteractionEnabled ? (distance / touchGestureRef.current.lastDistance) : 1;
         const anchorX = touchGestureRef.current.lastCenterX - rect.left;
         const anchorY = touchGestureRef.current.lastCenterY - rect.top;
-        const nextCenterX = centerX - rect.left;
-        const nextCenterY = centerY - rect.top;
+        const nextCenterX = isDragInteractionEnabled ? (centerX - rect.left) : anchorX;
+        const nextCenterY = isDragInteractionEnabled ? (centerY - rect.top) : anchorY;
 
         setViewport((prev) => {
             const nextZoom = clamp(prev.zoom * zoomRatio, MIN_ZOOM, MAX_ZOOM);
@@ -1692,6 +1702,7 @@ const SolarSystemCanvas = ({
     };
 
     const handleTouchEnd = (event) => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) return;
         if (event.touches.length >= 2) {
             const touch1 = event.touches[0];
             const touch2 = event.touches[1];
@@ -1715,7 +1726,7 @@ const SolarSystemCanvas = ({
     };
 
     const handleWheel = (event) => {
-        if (!event.shiftKey) {
+        if (!isZoomInteractionEnabled) {
             return;
         }
         event.preventDefault();
@@ -1756,7 +1767,12 @@ const SolarSystemCanvas = ({
         <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
             <Box
                 ref={containerRef}
-                sx={{ width: '100%', height: '100%', cursor: 'grab', touchAction: 'pan-x pan-y' }}
+                sx={{
+                    width: '100%',
+                    height: '100%',
+                    cursor: isDragInteractionEnabled ? 'grab' : 'default',
+                    touchAction: (isDragInteractionEnabled || isZoomInteractionEnabled) ? 'pan-x pan-y' : 'auto',
+                }}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
@@ -1803,7 +1819,9 @@ const SolarSystemCanvas = ({
                     }}
                 >
                     <Typography variant="caption" sx={{ fontFamily: 'inherit', lineHeight: 1.1 }}>
-                        Touch: 2-finger pan/zoom | Mouse: drag + Shift+wheel
+                        {(isDragInteractionEnabled || isZoomInteractionEnabled)
+                            ? `Touch: ${isDragInteractionEnabled ? '2-finger pan' : ''}${isDragInteractionEnabled && isZoomInteractionEnabled ? '/zoom' : ''}${!isDragInteractionEnabled && isZoomInteractionEnabled ? 'pinch zoom' : ''} | Mouse: ${isDragInteractionEnabled ? 'drag' : ''}${isDragInteractionEnabled && isZoomInteractionEnabled ? ' + ' : ''}${isZoomInteractionEnabled ? 'wheel' : ''}`
+                            : 'Map gestures disabled; use toolbar controls.'}
                     </Typography>
                 </Box>
             ) : null}

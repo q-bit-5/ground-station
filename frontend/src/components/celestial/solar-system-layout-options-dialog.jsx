@@ -48,31 +48,83 @@ const SECTION_DEFS = [
         title: 'Scene Elements',
         subtitle: 'Primary solar system layers and labels.',
         options: [
-            { key: 'showGrid', label: 'Show grid' },
-            { key: 'showPlanets', label: 'Show planets' },
-            { key: 'showPlanetLabels', label: 'Show planet labels' },
-            { key: 'showPlanetOrbits', label: 'Show planet orbits' },
+            {
+                key: 'showGrid',
+                label: 'Show grid',
+                description: 'Display a reference grid for quick spatial orientation.',
+            },
+            {
+                key: 'showPlanets',
+                label: 'Show planets',
+                description: 'Render planets and major solar-system bodies in the viewport.',
+            },
+            {
+                key: 'showPlanetLabels',
+                label: 'Show planet labels',
+                description: 'Show body names next to visible planets.',
+            },
+            {
+                key: 'showPlanetOrbits',
+                label: 'Show planet orbits',
+                description: 'Draw orbital rings/paths for planetary motion context.',
+            },
         ],
     },
     {
         title: 'Tracked Targets',
         subtitle: 'Tracked objects and their orbit/label overlays.',
         options: [
-            { key: 'showTrackedObjects', label: 'Show tracked objects' },
-            { key: 'showTrackedOrbits', label: 'Show tracked orbits' },
-            { key: 'showTrackedLabels', label: 'Show tracked labels' },
+            {
+                key: 'showTrackedObjects',
+                label: 'Show tracked objects',
+                description: 'Display currently tracked mission/body markers.',
+            },
+            {
+                key: 'showTrackedOrbits',
+                label: 'Show tracked orbits',
+                description: 'Overlay sampled trajectory paths for tracked targets.',
+            },
+            {
+                key: 'showTrackedLabels',
+                label: 'Show tracked labels',
+                description: 'Show labels and telemetry context for tracked targets.',
+            },
         ],
     },
     {
         title: 'Guides and Metadata',
         subtitle: 'Contextual markers, labels, and scene metadata.',
         options: [
-            { key: 'showAsteroidZones', label: 'Show asteroid zones' },
-            { key: 'showZoneLabels', label: 'Show asteroid zone labels' },
-            { key: 'showResonanceMarkers', label: 'Show resonance markers' },
-            { key: 'showTimestamp', label: 'Show epoch label' },
-            { key: 'showScaleIndicator', label: 'Show scale label' },
-            { key: 'showGestureHint', label: 'Show gesture hint' },
+            {
+                key: 'showAsteroidZones',
+                label: 'Show asteroid zones',
+                description: 'Display major asteroid-belt region overlays.',
+            },
+            {
+                key: 'showZoneLabels',
+                label: 'Show asteroid zone labels',
+                description: 'Annotate asteroid regions with zone names.',
+            },
+            {
+                key: 'showResonanceMarkers',
+                label: 'Show resonance markers',
+                description: 'Render key orbital resonance reference markers.',
+            },
+            {
+                key: 'showTimestamp',
+                label: 'Show epoch label',
+                description: 'Show the scene timestamp used for current positions.',
+            },
+            {
+                key: 'showScaleIndicator',
+                label: 'Show scale label',
+                description: 'Show the current viewport distance scale reference.',
+            },
+            {
+                key: 'showGestureHint',
+                label: 'Show gesture hint',
+                description: 'Show a short help hint for map interaction controls.',
+            },
         ],
     },
 ];
@@ -117,23 +169,57 @@ const ToggleRow = ({ label, checked, onChange }) => (
     />
 );
 
-function SolarSystemLayoutOptionsDialog({ open, initialOptions, onClose }) {
+const ToggleRowWithDescription = ({ label, description, checked, onChange }) => (
+    <Box>
+        <ToggleRow label={label} checked={checked} onChange={onChange} />
+        {description ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4.6, mt: -0.25 }}>
+                {description}
+            </Typography>
+        ) : null}
+    </Box>
+);
+
+const normalizeInteractionSettings = (settings) => ({
+    enableMapDragging: Boolean(settings?.enableMapDragging),
+    enableMapZooming: Boolean(settings?.enableMapZooming),
+});
+
+function SolarSystemLayoutOptionsDialog({
+    open,
+    initialOptions,
+    initialInteractionSettings,
+    onApplyInteractionSettings,
+    onClose,
+}) {
     const dispatch = useDispatch();
     const { t } = useTranslation('common');
 
     const initialSettings = useMemo(() => buildSettings(initialOptions), [initialOptions]);
+    const initialInteraction = useMemo(
+        () => normalizeInteractionSettings(initialInteractionSettings),
+        [initialInteractionSettings]
+    );
     const [draftSettings, setDraftSettings] = useState(initialSettings);
+    const [draftInteraction, setDraftInteraction] = useState(initialInteraction);
 
     useEffect(() => {
         if (open) {
             setDraftSettings(initialSettings);
+            setDraftInteraction(initialInteraction);
         }
-    }, [open, initialSettings]);
+    }, [open, initialInteraction, initialSettings]);
 
-    const isDirty = !settingsEqual(draftSettings, initialSettings);
+    const isDisplayDirty = !settingsEqual(draftSettings, initialSettings);
+    const isInteractionDirty = (
+        draftInteraction.enableMapDragging !== initialInteraction.enableMapDragging
+        || draftInteraction.enableMapZooming !== initialInteraction.enableMapZooming
+    );
+    const isDirty = isDisplayDirty || isInteractionDirty;
 
     const handleCancel = () => {
         setDraftSettings(initialSettings);
+        setDraftInteraction(initialInteraction);
         onClose?.();
     };
 
@@ -149,6 +235,9 @@ function SolarSystemLayoutOptionsDialog({ open, initialOptions, onClose }) {
                 );
             }
         });
+        if (isInteractionDirty) {
+            onApplyInteractionSettings?.(draftInteraction);
+        }
         onClose?.();
     };
 
@@ -167,12 +256,44 @@ function SolarSystemLayoutOptionsDialog({ open, initialOptions, onClose }) {
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                     <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 1.5 }}>
                         <Stack spacing={1.5}>
+                            <SectionBlock
+                                title="Map Interaction"
+                                subtitle="Enable gesture-driven panning and zooming on the solar-system map."
+                            >
+                                <ToggleRowWithDescription
+                                    label={t('map_settings.enable_map_dragging', { defaultValue: 'Enable map dragging' })}
+                                    description={t('map_settings.enable_map_dragging_desc', {
+                                        defaultValue: 'Allow click-and-drag panning on the map. When off, use controls.',
+                                    })}
+                                    checked={draftInteraction.enableMapDragging}
+                                    onChange={(value) => {
+                                        setDraftInteraction((current) => ({
+                                            ...current,
+                                            enableMapDragging: value,
+                                        }));
+                                    }}
+                                />
+                                <ToggleRowWithDescription
+                                    label={t('map_settings.enable_map_zooming', { defaultValue: 'Enable map zooming' })}
+                                    description={t('map_settings.enable_map_zooming_desc', {
+                                        defaultValue: 'Allow wheel and pinch zoom gestures. When off, use zoom buttons.',
+                                    })}
+                                    checked={draftInteraction.enableMapZooming}
+                                    onChange={(value) => {
+                                        setDraftInteraction((current) => ({
+                                            ...current,
+                                            enableMapZooming: value,
+                                        }));
+                                    }}
+                                />
+                            </SectionBlock>
                             {SECTION_DEFS.map((section) => (
                                 <SectionBlock key={section.title} title={section.title} subtitle={section.subtitle}>
                                     {section.options.map((option) => (
-                                        <ToggleRow
+                                        <ToggleRowWithDescription
                                             key={option.key}
                                             label={option.label}
+                                            description={option.description}
                                             checked={Boolean(draftSettings[option.key])}
                                             onChange={(value) => {
                                                 setDraftSettings((current) => ({
@@ -207,6 +328,7 @@ function SolarSystemLayoutOptionsDialog({ open, initialOptions, onClose }) {
                                 variant="text"
                                 onClick={() => {
                                     setDraftSettings({ ...DEFAULT_SOLAR_SYSTEM_DISPLAY_OPTIONS });
+                                    setDraftInteraction({ enableMapDragging: false, enableMapZooming: false });
                                 }}
                             >
                                 {t('map_settings.reset_defaults', { defaultValue: 'Reset Defaults' })}

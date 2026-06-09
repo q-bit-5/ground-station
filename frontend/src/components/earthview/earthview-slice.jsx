@@ -160,6 +160,8 @@ export const setEarthViewMapSetting = createAsyncThunk(
         );
         const mapZoomLevel = mapZoomByEngine[mapEngine];
         const mapSettings = {
+            enableMapDragging: state['earthViewTrack']['enableMapDragging'],
+            enableMapZooming: state['earthViewTrack']['enableMapZooming'],
             showPastOrbitPath: state['earthViewTrack']['showPastOrbitPath'],
             showFutureOrbitPath: state['earthViewTrack']['showFutureOrbitPath'],
             showSatelliteCoverage: state['earthViewTrack']['showSatelliteCoverage'],
@@ -321,6 +323,8 @@ const earthViewSlice = createSlice({
         },
         showPastOrbitPath: true,
         showFutureOrbitPath: true,
+        enableMapDragging: false,
+        enableMapZooming: false,
         showSatelliteCoverage: true,
         showSunIcon: true,
         showMoonIcon: true,
@@ -423,6 +427,12 @@ const earthViewSlice = createSlice({
         },
         setShowFutureOrbitPath(state, action) {
             state.showFutureOrbitPath = action.payload;
+        },
+        setEnableMapDragging(state, action) {
+            state.enableMapDragging = action.payload;
+        },
+        setEnableMapZooming(state, action) {
+            state.enableMapZooming = action.payload;
         },
         setShowSatelliteCoverage(state, action) {
             state.showSatelliteCoverage = action.payload;
@@ -689,6 +699,8 @@ const earthViewSlice = createSlice({
                     state.showTerminatorLine = action.payload['showTerminatorLine'];
                     state.showTooltip = action.payload['showTooltip'];
                     state.showGrid = action.payload['showGrid'];
+                    state.enableMapDragging = action.payload['enableMapDragging'] ?? false;
+                    state.enableMapZooming = action.payload['enableMapZooming'] ?? false;
                     state.pastOrbitLineColor = action.payload['pastOrbitLineColor'];
                     state.futureOrbitLineColor = action.payload['futureOrbitLineColor'];
                     state.satelliteCoverageColor = action.payload['satelliteCoverageColor'];
@@ -711,6 +723,8 @@ export const {
     setSatellitesTableSortModel,
     setShowPastOrbitPath,
     setShowFutureOrbitPath,
+    setEnableMapDragging,
+    setEnableMapZooming,
     setShowSatelliteCoverage,
     setShowSunIcon,
     setShowMoonIcon,

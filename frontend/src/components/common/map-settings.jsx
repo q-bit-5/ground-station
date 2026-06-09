@@ -43,6 +43,8 @@ import {
 import { useTranslation } from 'react-i18next';
 
 const SETTINGS_KEYS = [
+    'enableMapDragging',
+    'enableMapZooming',
     'showPastOrbitPath',
     'showFutureOrbitPath',
     'showSatelliteCoverage',
@@ -77,6 +79,8 @@ const normalizeProjectionLabel = (projection) => {
 
 const buildSettings = ({
     initialLockOnTarget,
+    initialEnableMapDragging,
+    initialEnableMapZooming,
     initialShowPastOrbitPath,
     initialShowFutureOrbitPath,
     initialShowSatelliteCoverage,
@@ -96,6 +100,8 @@ const buildSettings = ({
     const tileLayerID = resolveCompatibleTileLayerId(initialTileLayerID, mapEngine);
     return {
         lockOnTarget: Boolean(initialLockOnTarget),
+        enableMapDragging: Boolean(initialEnableMapDragging),
+        enableMapZooming: Boolean(initialEnableMapZooming),
         showPastOrbitPath: Boolean(initialShowPastOrbitPath),
         showFutureOrbitPath: Boolean(initialShowFutureOrbitPath),
         showSatelliteCoverage: Boolean(initialShowSatelliteCoverage),
@@ -143,6 +149,17 @@ const ToggleRow = ({ label, checked, onChange }) => (
         label={label}
         sx={{ ml: 0.2 }}
     />
+);
+
+const ToggleRowWithDescription = ({ label, description, checked, onChange }) => (
+    <Box>
+        <ToggleRow label={label} checked={checked} onChange={onChange} />
+        {description ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4.6, mt: -0.25 }}>
+                {description}
+            </Typography>
+        ) : null}
+    </Box>
 );
 
 const ColorSetting = ({ label, value, disabled = false, onChange }) => {
@@ -212,11 +229,13 @@ const ColorSetting = ({ label, value, disabled = false, onChange }) => {
     );
 };
 
-const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, initialShowFutureOrbitPath, initialShowSatelliteCoverage,
+const MapSettingsIsland = ({ initialLockOnTarget, initialEnableMapDragging, initialEnableMapZooming,
+                            initialShowPastOrbitPath, initialShowFutureOrbitPath, initialShowSatelliteCoverage,
                             initialShowSunIcon, initialShowMoonIcon, initialShowTerminatorLine,
                             initialSatelliteCoverageColor, initialPastOrbitLineColor, initialFutureOrbitLineColor,
                             initialOrbitProjectionDuration, initialTileLayerID, initialMapEngine, initialShowTooltip, initialShowGrid,
-                               handleLockOnTarget, handleShowFutureOrbitPath, handleShowPastOrbitPath,
+                               handleLockOnTarget, handleEnableMapDragging, handleEnableMapZooming,
+                               handleShowFutureOrbitPath, handleShowPastOrbitPath,
                             handleShowSatelliteCoverage, handleSetShowSunIcon, handleSetShowMoonIcon,
                             handleShowTerminatorLine, handleFutureOrbitLineColor, handlePastOrbitLineColor,
                             handleSatelliteCoverageColor, handleOrbitProjectionDuration, handleShowTooltip,
@@ -250,6 +269,8 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
     const initialSettings = useMemo(
         () => buildSettings({
             initialLockOnTarget,
+            initialEnableMapDragging,
+            initialEnableMapZooming,
             initialShowPastOrbitPath,
             initialShowFutureOrbitPath,
             initialShowSatelliteCoverage,
@@ -267,6 +288,8 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
         }),
         [
             initialLockOnTarget,
+            initialEnableMapDragging,
+            initialEnableMapZooming,
             initialShowPastOrbitPath,
             initialShowFutureOrbitPath,
             initialShowSatelliteCoverage,
@@ -287,6 +310,8 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
     const defaults = useMemo(
         () => buildSettings({
             initialLockOnTarget: defaultSettings?.lockOnTarget,
+            initialEnableMapDragging: defaultSettings?.enableMapDragging,
+            initialEnableMapZooming: defaultSettings?.enableMapZooming,
             initialShowPastOrbitPath: defaultSettings?.showPastOrbitPath,
             initialShowFutureOrbitPath: defaultSettings?.showFutureOrbitPath,
             initialShowSatelliteCoverage: defaultSettings?.showSatelliteCoverage,
@@ -357,6 +382,8 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
             tileLayerID,
         };
 
+        handleEnableMapDragging?.(sanitizedSettings.enableMapDragging);
+        handleEnableMapZooming?.(sanitizedSettings.enableMapZooming);
         handleShowPastOrbitPath(sanitizedSettings.showPastOrbitPath);
         handleShowFutureOrbitPath(sanitizedSettings.showFutureOrbitPath);
         handleShowSatelliteCoverage(sanitizedSettings.showSatelliteCoverage);
@@ -474,45 +501,83 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                             defaultValue: 'Switching map engine or projection rebuilds the map canvas and may recenter the view.',
                         })}
                     </Typography>
+
+                    <ToggleRowWithDescription
+                        label={t('map_settings.enable_map_dragging', { defaultValue: 'Enable map dragging' })}
+                        description={t('map_settings.enable_map_dragging_desc', {
+                            defaultValue: 'Allow click-and-drag panning directly on the map.',
+                        })}
+                        checked={draftSettings.enableMapDragging}
+                        onChange={(value) => setDraftSettings((prev) => ({ ...prev, enableMapDragging: value }))}
+                    />
+                    <ToggleRowWithDescription
+                        label={t('map_settings.enable_map_zooming', { defaultValue: 'Enable map zooming' })}
+                        description={t('map_settings.enable_map_zooming_desc', {
+                            defaultValue: 'Allow mouse wheel, pinch, and double-click zoom gestures.',
+                        })}
+                        checked={draftSettings.enableMapZooming}
+                        onChange={(value) => setDraftSettings((prev) => ({ ...prev, enableMapZooming: value }))}
+                    />
                 </SectionBlock>
 
                 <SectionBlock
                     title={t('map_settings.section_satellite_overlays', { defaultValue: 'Satellite Overlays' })}
                 >
                     {supportsLockOnTarget ? (
-                        <ToggleRow
+                        <ToggleRowWithDescription
                             label={t('map_settings.lock_on_target', { defaultValue: 'Lock map on selected target' })}
+                            description={t('map_settings.lock_on_target_desc', {
+                                defaultValue: 'Keep the active target centered while tracking updates.',
+                            })}
                             checked={draftSettings.lockOnTarget}
                             onChange={(value) => setDraftSettings((prev) => ({ ...prev, lockOnTarget: value }))}
                         />
                     ) : null}
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.satellite_coverage')}
+                        description={t('map_settings.satellite_coverage_desc', {
+                            defaultValue: 'Show the current ground footprint coverage area for tracked satellites.',
+                        })}
                         checked={draftSettings.showSatelliteCoverage}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showSatelliteCoverage: value }))}
                     />
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.show_sun')}
+                        description={t('map_settings.show_sun_desc', {
+                            defaultValue: 'Display the subsolar point marker on the map.',
+                        })}
                         checked={draftSettings.showSunIcon}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showSunIcon: value }))}
                     />
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.show_moon')}
+                        description={t('map_settings.show_moon_desc', {
+                            defaultValue: 'Display the sublunar point marker on the map.',
+                        })}
                         checked={draftSettings.showMoonIcon}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showMoonIcon: value }))}
                     />
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.day_night_separator')}
+                        description={t('map_settings.day_night_separator_desc', {
+                            defaultValue: 'Draw the day-night boundary overlay.',
+                        })}
                         checked={draftSettings.showTerminatorLine}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showTerminatorLine: value }))}
                     />
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.satellite_tooltip')}
+                        description={t('map_settings.satellite_tooltip_desc', {
+                            defaultValue: 'Show satellite name and telemetry tooltip labels.',
+                        })}
                         checked={draftSettings.showTooltip}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showTooltip: value }))}
                     />
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.coordinate_grid')}
+                        description={t('map_settings.coordinate_grid_desc', {
+                            defaultValue: 'Overlay latitude and longitude grid lines.',
+                        })}
                         checked={draftSettings.showGrid}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showGrid: value }))}
                     />
@@ -521,13 +586,19 @@ const MapSettingsIsland = ({ initialLockOnTarget, initialShowPastOrbitPath, init
                 <SectionBlock
                     title={t('map_settings.section_orbital_paths', { defaultValue: 'Orbital Paths' })}
                 >
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.past_orbit_path')}
+                        description={t('map_settings.past_orbit_path_desc', {
+                            defaultValue: 'Plot the satellite path for elapsed time before now.',
+                        })}
                         checked={draftSettings.showPastOrbitPath}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showPastOrbitPath: value }))}
                     />
-                    <ToggleRow
+                    <ToggleRowWithDescription
                         label={t('map_settings.future_orbit_path')}
+                        description={t('map_settings.future_orbit_path_desc', {
+                            defaultValue: 'Plot the projected orbit path ahead of the current time.',
+                        })}
                         checked={draftSettings.showFutureOrbitPath}
                         onChange={(value) => setDraftSettings((prev) => ({ ...prev, showFutureOrbitPath: value }))}
                     />

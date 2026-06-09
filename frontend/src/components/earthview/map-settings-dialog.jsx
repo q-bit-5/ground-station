@@ -34,6 +34,8 @@ import {
     setShowSunIcon, setShowTerminatorLine, setShowTooltip, setTileLayerID, setMapEngine,
     setOpenMapSettingsDialog,
     setShowGrid,
+    setEnableMapDragging,
+    setEnableMapZooming,
 } from "./earthview-slice.jsx";
 
 function MapSettingsIslandDialog({updateBackend}) {
@@ -48,6 +50,8 @@ function MapSettingsIslandDialog({updateBackend}) {
         showTerminatorLine,
         showTooltip,
         showGrid,
+        enableMapDragging,
+        enableMapZooming,
         pastOrbitLineColor,
         futureOrbitLineColor,
         satelliteCoverageColor,
@@ -113,7 +117,11 @@ function MapSettingsIslandDialog({updateBackend}) {
                         initialShowTooltip={showTooltip}
                         initialShowTerminatorLine={showTerminatorLine}
                         initialShowGrid={showGrid}
+                        initialEnableMapDragging={enableMapDragging}
+                        initialEnableMapZooming={enableMapZooming}
                         defaultSettings={{
+                            enableMapDragging: false,
+                            enableMapZooming: false,
                             showPastOrbitPath: true,
                             showFutureOrbitPath: true,
                             showSatelliteCoverage: true,
@@ -141,6 +149,8 @@ function MapSettingsIslandDialog({updateBackend}) {
                         handleOrbitProjectionDuration={(value)=>{dispatch(setOrbitProjectionDuration(value))}}
                         handleShowTooltip={(value)=>{dispatch(setShowTooltip(value))}}
                         handleShowGrid={(value)=>{dispatch(setShowGrid(value))}}
+                        handleEnableMapDragging={(value)=>{dispatch(setEnableMapDragging(value))}}
+                        handleEnableMapZooming={(value)=>{dispatch(setEnableMapZooming(value))}}
                         handleMapEngine={(value)=>{dispatch(setMapEngine(value))}}
                         handleTileLayerID={(value)=>{dispatch(setTileLayerID(value))}}
                         onCancel={handleCloseDialog}

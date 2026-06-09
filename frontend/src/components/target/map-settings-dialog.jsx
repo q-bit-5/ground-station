@@ -43,6 +43,8 @@ import {
     setTileLayerID,
     setOpenMapSettingsDialog,
     setShowGrid,
+    setEnableMapDragging,
+    setEnableMapZooming,
 } from "./target-slice.jsx";
 import {
     MAP_ENGINE_LEAFLET,
@@ -76,6 +78,8 @@ function MapSettingsIslandDialog({updateBackend}) {
         mapEngine,
         openMapSettingsDialog,
         showGrid,
+        enableMapDragging,
+        enableMapZooming,
     } = useSelector(state => state.targetSatTrack);
 
     const handleCloseDialog = () => {
@@ -134,10 +138,14 @@ function MapSettingsIslandDialog({updateBackend}) {
                         initialMapEngine={mapEngine}
                         initialShowTooltip={showTooltip}
                         initialShowGrid={showGrid}
+                        initialEnableMapDragging={enableMapDragging}
+                        initialEnableMapZooming={enableMapZooming}
                         initialShowTerminatorLine={showTerminatorLine}
                         mapEngineOptions={TARGET_MAP_ENGINE_OPTIONS}
                         defaultSettings={{
                             lockOnTarget: true,
+                            enableMapDragging: false,
+                            enableMapZooming: false,
                             showPastOrbitPath: true,
                             showFutureOrbitPath: true,
                             showSatelliteCoverage: true,
@@ -168,6 +176,8 @@ function MapSettingsIslandDialog({updateBackend}) {
                         handleMapEngine={(value)=>{dispatch(setMapEngine(value))}}
                         handleTileLayerID={(value)=>{dispatch(setTileLayerID(value))}}
                         handleShowGrid={(value)=>{dispatch(setShowGrid(value))}}
+                        handleEnableMapDragging={(value)=>{dispatch(setEnableMapDragging(value))}}
+                        handleEnableMapZooming={(value)=>{dispatch(setEnableMapZooming(value))}}
                         onCancel={handleCloseDialog}
                         updateBackend={updateBackend}
                     />

@@ -26,15 +26,12 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import GpsFixedIcon from '@mui/icons-material/GpsFixed';
-import PanToolAltIcon from '@mui/icons-material/PanToolAlt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import {useDispatch, useSelector} from 'react-redux';
 import {useTranslation} from 'react-i18next';
 import {
     setOpenMapSettingsDialog,
     setMapZoomLevel,
-    setLockOnTarget,
     setTargetMapSetting,
 } from './target-slice.jsx';
 import {
@@ -234,24 +231,6 @@ function buildGridGeoJSON(latInterval = 15, lngInterval = 15) {
     };
 }
 
-const FollowTargetModeButton = React.memo(function FollowTargetModeButton({lockOnTarget, onToggle}) {
-    const {t} = useTranslation('target');
-    const tooltipTitle = lockOnTarget
-        ? t('map_controls.switch_to_free_pan', {defaultValue: 'Switch to free pan mode'})
-        : t('map_controls.switch_to_lock_on_target', {defaultValue: 'Switch to lock-on-target mode'});
-
-    return (
-        <Fab
-            size="small"
-            color={lockOnTarget ? 'primary' : 'default'}
-            aria-label={tooltipTitle}
-            onClick={onToggle}
-        >
-            {lockOnTarget ? <GpsFixedIcon/> : <PanToolAltIcon/>}
-        </Fab>
-    );
-});
-
 const TargetAttributionBar = React.memo(function TargetAttributionBar({htmlString}) {
     return (
         <MapStatusBar>
@@ -284,6 +263,8 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
         mapZoomLevel,
         gridEditable,
         showGrid,
+        enableMapDragging,
+        enableMapZooming,
     } = useSelector((state) => state.targetSatTrack);
 
     const satellitePosition = useSelector(satellitePositionSelector);
@@ -655,14 +636,6 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
         dispatch(setOpenMapSettingsDialog(true));
     }, [dispatch]);
 
-    const handleToggleLockOnTarget = useCallback(() => {
-        const nextLockOnTarget = !lockOnTarget;
-        dispatch(setLockOnTarget(nextLockOnTarget));
-        if (socket) {
-            dispatch(setTargetMapSetting({socket, key: 'target-map-settings'}));
-        }
-    }, [dispatch, lockOnTarget, socket]);
-
     const humanizedAltitude = humanizeAltitude(satellitePosition?.alt, 0);
     const altitudeLabel = humanizedAltitude === 'Invalid altitude'
         ? '-- km'
@@ -740,10 +713,10 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
                         latitude: hasSatellitePosition ? satelliteLat : 0,
                         zoom: mapZoomLevel,
                     }}
-                    dragPan={false}
-                    scrollZoom={false}
-                    touchZoomRotate={false}
-                    doubleClickZoom={false}
+                    dragPan={enableMapDragging}
+                    scrollZoom={enableMapZooming}
+                    touchZoomRotate={enableMapZooming}
+                    doubleClickZoom={enableMapZooming}
                     keyboard={false}
                     renderWorldCopies={false}
                     minZoom={MAPLIBRE_MIN_ZOOM}
@@ -959,15 +932,6 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
                 </Map>
 
                 <Box sx={{'& > :not(style)': {m: 1}}} style={{right: 5, top: 5, position: 'absolute'}}>
-                    <Tooltip
-                        title={lockOnTarget
-                            ? t('map_controls.lock_on_target_enabled', {defaultValue: 'Lock on target is enabled'})
-                            : t('map_controls.lock_on_target_disabled', {defaultValue: 'Free pan mode is enabled'})}
-                    >
-                        <span>
-                            <FollowTargetModeButton lockOnTarget={lockOnTarget} onToggle={handleToggleLockOnTarget}/>
-                        </span>
-                    </Tooltip>
                     <Tooltip title={t('map_controls.go_home', {defaultValue: 'Go home'})}>
                         <span>
                             <Fab size="small" color="primary" aria-label={t('map_controls.go_home')} onClick={handleCenterHome} disabled={!location}>
@@ -991,32 +955,34 @@ const TargetMapMapLibreRenderer = ({projection = MAPLIBRE_PROJECTION_MERCATOR}) 
                     </Tooltip>
                 </Box>
 
-                <Box
-                    sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
-                    style={{left: 5, top: 5, position: 'absolute'}}
-                >
-                    <Tooltip title={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})}>
-                        <span>
-                            <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleZoomIn}>
-                                <ZoomInIcon/>
-                            </Fab>
-                        </span>
-                    </Tooltip>
-                    <Tooltip title={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})}>
-                        <span>
-                            <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleZoomOut}>
-                                <ZoomOutIcon/>
-                            </Fab>
-                        </span>
-                    </Tooltip>
-                </Box>
+                {!enableMapZooming ? (
+                    <Box
+                        sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
+                        style={{left: 5, top: 5, position: 'absolute'}}
+                    >
+                        <Tooltip title={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})}>
+                            <span>
+                                <Fab size="small" color="primary" aria-label={t('map_controls.zoom_in', {defaultValue: 'Zoom in'})} onClick={handleZoomIn}>
+                                    <ZoomInIcon/>
+                                </Fab>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})}>
+                            <span>
+                                <Fab size="small" color="primary" aria-label={t('map_controls.zoom_out', {defaultValue: 'Zoom out'})} onClick={handleZoomOut}>
+                                    <ZoomOutIcon/>
+                                </Fab>
+                            </span>
+                        </Tooltip>
+                    </Box>
+                ) : null}
 
                 <MapSettingsIslandDialog updateBackend={() => {
                     const key = 'target-map-settings';
                     dispatch(setTargetMapSetting({socket, key}));
                 }}/>
 
-                {!lockOnTarget && liveMap ? <MapArrowControls mapObject={liveMap} verticalOffset={25}/> : null}
+                {!enableMapDragging && liveMap ? <MapArrowControls mapObject={liveMap} verticalOffset={25}/> : null}
             </Box>
             <TargetAttributionBar htmlString={attributionHtml}/>
         </Box>

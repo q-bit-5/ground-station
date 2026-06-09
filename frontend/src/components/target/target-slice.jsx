@@ -403,6 +403,8 @@ export const setTargetMapSetting = createAsyncThunk(
         const state = getState();
         const mapSettings = {
             lockOnTarget: state['targetSatTrack']['lockOnTarget'],
+            enableMapDragging: state['targetSatTrack']['enableMapDragging'],
+            enableMapZooming: state['targetSatTrack']['enableMapZooming'],
             showPastOrbitPath: state['targetSatTrack']['showPastOrbitPath'],
             showFutureOrbitPath: state['targetSatTrack']['showFutureOrbitPath'],
             showSatelliteCoverage: state['targetSatTrack']['showSatelliteCoverage'],
@@ -767,6 +769,8 @@ const targetSatTrackSlice = createSlice({
         loading: false,
         error: null,
         lockOnTarget: true,
+        enableMapDragging: false,
+        enableMapZooming: false,
         showPastOrbitPath: true,
         showFutureOrbitPath: true,
         showSatelliteCoverage: true,
@@ -1115,6 +1119,12 @@ const targetSatTrackSlice = createSlice({
         },
         setLockOnTarget(state, action) {
             state.lockOnTarget = action.payload;
+        },
+        setEnableMapDragging(state, action) {
+            state.enableMapDragging = action.payload;
+        },
+        setEnableMapZooming(state, action) {
+            state.enableMapZooming = action.payload;
         },
         setShowPastOrbitPath(state, action) {
             state.showPastOrbitPath = action.payload;
@@ -1707,6 +1717,8 @@ const targetSatTrackSlice = createSlice({
                     state.mapZoomLevel = convertMapZoomForEngine(state.mapZoomLevel, state.mapEngine, mapEngine);
                     state.mapEngine = mapEngine;
                     state.lockOnTarget = action.payload['lockOnTarget'] ?? true;
+                    state.enableMapDragging = action.payload['enableMapDragging'] ?? false;
+                    state.enableMapZooming = action.payload['enableMapZooming'] ?? false;
                     state.tileLayerID = resolveCompatibleTileLayerId(action.payload['tileLayerID'], mapEngine);
                     state.showPastOrbitPath = action.payload['showPastOrbitPath'];
                     state.showFutureOrbitPath = action.payload['showFutureOrbitPath'];
@@ -1748,6 +1760,8 @@ export const {
     setSatelliteId,
     setSatGroupId,
     setLockOnTarget,
+    setEnableMapDragging,
+    setEnableMapZooming,
     setShowPastOrbitPath,
     setShowFutureOrbitPath,
     setShowSatelliteCoverage,

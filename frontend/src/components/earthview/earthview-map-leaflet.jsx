@@ -229,6 +229,8 @@ const LeafletEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
         openMapSettingsDialog,
         nextPassesHours,
         showGrid,
+        enableMapDragging,
+        enableMapZooming,
         selectedSatelliteId,
         selectedSatGroupId,
         loadingSatellites,
@@ -887,15 +889,18 @@ const LeafletEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 </Backdrop>
                 {/* Leaflet CRS is immutable after map init, so remount when projection changes. */}
                 <MapContainer
-                    key={`earth-view-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
+                    key={`earth-view-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}-${enableMapDragging}-${enableMapZooming}`}
                     className="earth-view-map"
                     fullscreenControl={true}
                     center={[0, 0]}
                     crs={mapCrs}
                     zoom={mapZoomLevel}
                     style={{width: '100%', height: '100%'}}
-                    dragging={false}
-                    scrollWheelZoom={false}
+                    dragging={enableMapDragging}
+                    scrollWheelZoom={enableMapZooming}
+                    doubleClickZoom={enableMapZooming}
+                    touchZoom={enableMapZooming}
+                    boxZoom={enableMapZooming}
                     maxZoom={10}
                     minZoom={0}
                     whenReady={handleWhenReady}
@@ -916,14 +921,16 @@ const LeafletEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                     <TileLayer url={selectedTileLayer.url}/>
                 )}
 
-                <Box
-                    ref={zoomControlsRef}
-                    sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
-                    style={{left: 5, top: 5, position: 'absolute'}}
-                >
-                    <ZoomInButton/>
-                    <ZoomOutButton/>
-                </Box>
+                {!enableMapZooming ? (
+                    <Box
+                        ref={zoomControlsRef}
+                        sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
+                        style={{left: 5, top: 5, position: 'absolute'}}
+                    >
+                        <ZoomInButton/>
+                        <ZoomOutButton/>
+                    </Box>
+                ) : null}
 
                 <Box
                     ref={controlsBoxRef}
@@ -985,10 +992,11 @@ const LeafletEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                 {mapLayers.currentSatellitesCoverage}
                 {mapLayers.currentCrosshairs}
 
-                {/* Wrap MapArrowControls with a container to detect clicks */}
-                <div ref={arrowControlsRef}>
-                    <MapArrowControls mapObject={MapObject} verticalOffset={25}/>
-                </div>
+                {!enableMapDragging ? (
+                    <div ref={arrowControlsRef}>
+                        <MapArrowControls mapObject={MapObject} verticalOffset={25}/>
+                    </div>
+                ) : null}
 
                 {showGrid && (
                     <CoordinateGrid

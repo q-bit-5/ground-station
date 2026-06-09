@@ -38,8 +38,6 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import GpsFixedIcon from '@mui/icons-material/GpsFixed';
-import PanToolAltIcon from '@mui/icons-material/PanToolAlt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {useDispatch, useSelector} from "react-redux";
@@ -63,7 +61,6 @@ import {
     fetchSatellite,
     getTrackingStateFromBackend,
     setSatelliteId,
-    setLockOnTarget,
     setTargetMapSetting,
 } from './target-slice.jsx';
 import {getMapCrsByTileLayerId, getTileLayerById, normalizeMapEngine} from "../common/tile-layers.jsx";
@@ -389,24 +386,6 @@ const ZoomOutButton = React.memo(function ZoomOutButton() {
     );
 });
 
-const FollowTargetModeButton = React.memo(function FollowTargetModeButton({ lockOnTarget, onToggle }) {
-    const { t } = useTranslation('target');
-    const tooltipTitle = lockOnTarget
-        ? t('map_controls.switch_to_free_pan', { defaultValue: 'Switch to free pan mode' })
-        : t('map_controls.switch_to_lock_on_target', { defaultValue: 'Switch to lock-on-target mode' });
-
-    return (
-        <Fab
-            size="small"
-            color={lockOnTarget ? 'primary' : 'default'}
-            aria-label={tooltipTitle}
-            onClick={onToggle}
-        >
-            {lockOnTarget ? <GpsFixedIcon/> : <PanToolAltIcon/>}
-        </Fab>
-    );
-});
-
 const TargetAttributionBar = React.memo(function TargetAttributionBar({ htmlString }) {
     return (
         <MapStatusBar>
@@ -448,6 +427,8 @@ const LeafletTargetMapRenderer = ({}) => {
         sliderTimeOffset,
         openMapSettingsDialog,
         showGrid,
+        enableMapDragging,
+        enableMapZooming,
     } = useSelector(state => state.targetSatTrack);
     const trackerInstances = useSelector((state) => state.trackerInstances?.instances || []);
     const targetNumber = useMemo(() => {
@@ -921,14 +902,6 @@ const LeafletTargetMapRenderer = ({}) => {
     const handleOpenSettings = useCallback(() => {
         dispatch(setOpenMapSettingsDialog(true));
     }, [dispatch]);
-    const handleToggleLockOnTarget = useCallback(() => {
-        const nextLockOnTarget = !lockOnTarget;
-        dispatch(setLockOnTarget(nextLockOnTarget));
-        if (socket) {
-            dispatch(setTargetMapSetting({socket, key: 'target-map-settings'}));
-        }
-    }, [dispatch, lockOnTarget, socket]);
-
     if (!isSatelliteTarget) {
         const scopedTargetRows = Array.isArray(nonSatelliteScene?.celestial) ? nonSatelliteScene.celestial : [];
         const hasTargetData = scopedTargetRows.length > 0;
@@ -1027,14 +1000,17 @@ const LeafletTargetMapRenderer = ({}) => {
             <Box sx={{ width: '100%', flex: 1, minHeight: 0, position: 'relative' }}>
                 {/* Leaflet CRS is immutable after map init, so remount when projection changes. */}
                 <MapContainer
-                    key={`target-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}`}
+                    key={`target-map-${normalizedMapEngine}-${selectedTileLayer.id}-${selectedTileLayer.projection || 'EPSG3857'}-${enableMapDragging}-${enableMapZooming}`}
                     className="target-map"
                     center={satellitePosition?.lat && satellitePosition?.lon ? [satellitePosition.lat, satellitePosition.lon] : [0, 0]}
                     crs={mapCrs}
                     zoom={mapZoomLevel}
                     style={{width: '100%', height: '100%'}}
-                    dragging={false}
-                    scrollWheelZoom={false}
+                    dragging={enableMapDragging}
+                    scrollWheelZoom={enableMapZooming}
+                    doubleClickZoom={enableMapZooming}
+                    touchZoom={enableMapZooming}
+                    boxZoom={enableMapZooming}
                     maxZoom={10}
                     minZoom={0}
                     whenReady={handleWhenReady}
@@ -1057,27 +1033,20 @@ const LeafletTargetMapRenderer = ({}) => {
                 )}
 
                 <Box sx={{'& > :not(style)': {m: 1}}} style={{right: 5, top: 5, position: 'absolute'}}>
-                    <Tooltip
-                        title={lockOnTarget
-                            ? t('map_controls.lock_on_target_enabled', { defaultValue: 'Lock on target is enabled' })
-                            : t('map_controls.lock_on_target_disabled', { defaultValue: 'Free pan mode is enabled' })}
-                    >
-                        <span>
-                            <FollowTargetModeButton lockOnTarget={lockOnTarget} onToggle={handleToggleLockOnTarget}/>
-                        </span>
-                    </Tooltip>
                     <CenterHomeButton/>
                     <CenterMapButton/>
                     <FullscreenMapButton/>
                 </Box>
 
-                <Box
-                    sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
-                    style={{left: 5, top: 5, position: 'absolute'}}
-                >
-                    <ZoomInButton/>
-                    <ZoomOutButton/>
-                </Box>
+                {!enableMapZooming ? (
+                    <Box
+                        sx={{'& > :not(style)': {m: 1}, display: 'flex', flexDirection: 'column'}}
+                        style={{left: 5, top: 5, position: 'absolute'}}
+                    >
+                        <ZoomInButton/>
+                        <ZoomOutButton/>
+                    </Box>
+                ) : null}
 
                 <MapSettingsIslandDialog updateBackend={() => {
                     const key = 'target-map-settings';
@@ -1130,8 +1099,7 @@ const LeafletTargetMapRenderer = ({}) => {
                 {showSatelliteCoverage ? currentSatellitesCoverage : null}
 
 
-                {/* Arrow panning is only available in free-pan mode. */}
-                {!lockOnTarget ? <MapArrowControls mapObject={MapObject} verticalOffset={25}/> : null}
+                {!enableMapDragging ? <MapArrowControls mapObject={MapObject} verticalOffset={25}/> : null}
 
                 {showGrid && (
                     <CoordinateGrid

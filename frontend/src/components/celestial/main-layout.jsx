@@ -300,6 +300,13 @@ const CelestialMainLayout = () => {
             step_minutes: parsePositiveNumber(mapSettings.stepMinutes, DEFAULT_STEP_MINUTES),
         };
     }, [celestialState.mapSettings]);
+    const interactionSettings = React.useMemo(() => {
+        const mapSettings = celestialState.mapSettings || {};
+        return {
+            enableMapDragging: Boolean(mapSettings.enableMapDragging),
+            enableMapZooming: Boolean(mapSettings.enableMapZooming),
+        };
+    }, [celestialState.mapSettings]);
 
     const sceneRequestPayload = React.useMemo(
         () => ({
@@ -535,6 +542,7 @@ const CelestialMainLayout = () => {
                     fullscreen={solarSystemFullscreen}
                     fullscreenLabel={t('map_controls.go_fullscreen', { defaultValue: 'Go fullscreen' })}
                     exitFullscreenLabel={t('map_controls.exit_fullscreen', { defaultValue: 'Exit fullscreen' })}
+                    showZoomButtons={!interactionSettings.enableMapZooming}
                 />
                 <Box sx={{ p: 0, flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
                     {celestialState.error && !hasSolarScene ? (
@@ -554,6 +562,8 @@ const CelestialMainLayout = () => {
                                 resetZoomSignal={resetZoomSignal}
                                 centerSunSignal={centerSunSignal}
                                 initialViewport={celestialState.mapSettings?.solarSystemViewport}
+                                enableMapDragging={interactionSettings.enableMapDragging}
+                                enableMapZooming={interactionSettings.enableMapZooming}
                                 onViewportCommit={handleViewportCommit}
                                 displayOptions={solarSystemDisplayOptions}
                             />
@@ -698,6 +708,13 @@ const CelestialMainLayout = () => {
             <SolarSystemLayoutOptionsDialog
                 open={openSolarSystemLayoutOptionsDialog}
                 initialOptions={solarSystemDisplayOptions}
+                initialInteractionSettings={interactionSettings}
+                onApplyInteractionSettings={(nextInteraction) => {
+                    updateProjectionSetting({
+                        enableMapDragging: Boolean(nextInteraction?.enableMapDragging),
+                        enableMapZooming: Boolean(nextInteraction?.enableMapZooming),
+                    });
+                }}
                 onClose={() => setOpenSolarSystemLayoutOptionsDialog(false)}
             />
             <CelestialTopBar
