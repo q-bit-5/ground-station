@@ -499,8 +499,6 @@ docker run -d \
   --device=/dev/bus/usb \
   --privileged \
   -v /path/to/data:/app/backend/data \
-  -e GS_ENVIRONMENT=production \
-  -e GR_BUFFER_TYPE=vmcirc_mmap_tmpfile \
   ghcr.io/sgoudelis/ground-station:<version>
 
 # ARM64 (Raspberry Pi, etc)
@@ -512,8 +510,6 @@ docker run -d \
   -v /dev:/dev \
   --privileged \
   -v /path/to/data:/app/backend/data \
-  -e GS_ENVIRONMENT=production \
-  -e GR_BUFFER_TYPE=vmcirc_mmap_tmpfile \
   ghcr.io/sgoudelis/ground-station:<version>
 ```
 
@@ -531,8 +527,6 @@ docker run -d \
   --device=/dev/bus/usb \
   --privileged \
   -v /path/to/data:/app/backend/data \
-  -e GS_ENVIRONMENT=production \
-  -e GR_BUFFER_TYPE=vmcirc_mmap_tmpfile \
   ghcr.io/sgoudelis/ground-station:<version>
 
 # ARM64 (Raspberry Pi, etc)
@@ -544,8 +538,6 @@ docker run -d \
   -v /dev:/dev \
   --privileged \
   -v /path/to/data:/app/backend/data \
-  -e GS_ENVIRONMENT=production \
-  -e GR_BUFFER_TYPE=vmcirc_mmap_tmpfile \
   ghcr.io/sgoudelis/ground-station:<version>
 ```
 
