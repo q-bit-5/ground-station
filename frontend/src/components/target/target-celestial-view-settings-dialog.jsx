@@ -21,6 +21,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     Box,
     Button,
+    Chip,
     Dialog,
     DialogContent,
     DialogTitle,
@@ -127,13 +128,19 @@ function TargetCelestialViewSettingsDialog({ updateBackend }) {
     );
     const [draftViewMode, setDraftViewMode] = useState(normalizedInitialViewMode);
     const [draftInteraction, setDraftInteraction] = useState(initialInteraction);
+    const [saveState, setSaveState] = useState('idle');
 
     useEffect(() => {
         if (openMapSettingsDialog) {
             setDraftViewMode(normalizedInitialViewMode);
             setDraftInteraction(initialInteraction);
+            setSaveState('idle');
         }
     }, [initialInteraction, openMapSettingsDialog, normalizedInitialViewMode]);
+
+    useEffect(() => {
+        setSaveState((current) => ((current === 'saved' || current === 'error') ? 'idle' : current));
+    }, [draftInteraction, draftViewMode]);
 
     const isDirty = (
         draftViewMode !== normalizedInitialViewMode
@@ -144,19 +151,25 @@ function TargetCelestialViewSettingsDialog({ updateBackend }) {
     const handleClose = () => {
         setDraftViewMode(normalizedInitialViewMode);
         setDraftInteraction(initialInteraction);
+        setSaveState('idle');
         dispatch(setOpenMapSettingsDialog(false));
     };
 
     const handleApply = async () => {
-        dispatch(setTargetViewMode(draftViewMode));
-        dispatch(setTargetViewEnableDragging(draftInteraction.enableDragging));
-        dispatch(setTargetViewEnableZooming(draftInteraction.enableZooming));
-        await Promise.resolve(updateBackend?.({
-            targetViewMode: draftViewMode,
-            targetViewEnableDragging: draftInteraction.enableDragging,
-            targetViewEnableZooming: draftInteraction.enableZooming,
-        }));
-        dispatch(setOpenMapSettingsDialog(false));
+        setSaveState('saving');
+        try {
+            dispatch(setTargetViewMode(draftViewMode));
+            dispatch(setTargetViewEnableDragging(draftInteraction.enableDragging));
+            dispatch(setTargetViewEnableZooming(draftInteraction.enableZooming));
+            await Promise.resolve(updateBackend?.({
+                targetViewMode: draftViewMode,
+                targetViewEnableDragging: draftInteraction.enableDragging,
+                targetViewEnableZooming: draftInteraction.enableZooming,
+            }));
+            setSaveState('saved');
+        } catch {
+            setSaveState('error');
+        }
     };
 
     const handleReset = () => {
@@ -165,7 +178,14 @@ function TargetCelestialViewSettingsDialog({ updateBackend }) {
             enableDragging: true,
             enableZooming: true,
         });
+        setSaveState('idle');
     };
+
+    const saveFeedbackLabel = {
+        saving: t('map_settings.saving', { defaultValue: 'Saving…' }),
+        saved: t('map_settings.saved', { defaultValue: 'Saved' }),
+        error: t('map_settings.save_failed', { defaultValue: 'Save failed' }),
+    }[saveState];
 
     return (
         <Dialog
@@ -251,14 +271,21 @@ function TargetCelestialViewSettingsDialog({ updateBackend }) {
                         <Button variant="text" onClick={handleReset}>
                             {t('map_settings.reset_defaults', { defaultValue: 'Reset Defaults' })}
                         </Button>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+                            {saveFeedbackLabel ? (
+                                <Chip
+                                    size="small"
+                                    color={saveState === 'error' ? 'error' : saveState === 'saved' ? 'success' : 'default'}
+                                    label={saveFeedbackLabel}
+                                />
+                            ) : null}
                             <Button variant="outlined" onClick={handleClose}>
                                 {t('close', { defaultValue: 'Close' })}
                             </Button>
                             <Button
                                 variant="contained"
                                 onClick={handleApply}
-                                disabled={!isDirty}
+                                disabled={!isDirty || saveState === 'saving'}
                             >
                                 {t('map_settings.apply', { defaultValue: 'Apply' })}
                             </Button>
