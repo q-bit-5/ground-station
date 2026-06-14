@@ -168,7 +168,7 @@ const preferencesPersistConfig = {
 const targetSatTrackPersistConfig = {
     key: 'targetSatTrack',
     storage,
-    whitelist: ['passesTableSortModel', 'trackerId', 'lockOnTarget']
+    whitelist: ['passesTableSortModel', 'trackerId', 'lockOnTarget', 'autoSwitchPlanetariumByVisibility']
 };
 
 // Persist configuration for earth view tracking slice
