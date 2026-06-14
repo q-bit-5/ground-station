@@ -47,6 +47,12 @@ setup_allowed_commands = {
     "submit-location",
     "edit-location",
     "database-backup.full_restore",
+    # Setup finalization starts and tracks background initialization tasks
+    # before the first admin account is created.
+    "background-task.start",
+    "background-task.list",
+    "sync-satellite-data",
+    "fetch-sync-state",
 }
 
 # Commands that can significantly alter global system state are admin-only.

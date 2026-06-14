@@ -135,9 +135,15 @@ async def lifespan(fastapiapp: FastAPI):
             name="SoapySDR Discovery (monitor)",
         )
 
-    # Schedule initial sync if needed
+    # Schedule initial sync if needed.
+    # During first-time setup we defer this background sync so the setup wizard
+    # can explicitly start and display finalization status to the user.
     if _needs_initial_sync:
-        asyncio.create_task(run_initial_sync(background_task_manager))
+        setup_required = await authsvc.is_setup_required(force_refresh=True)
+        if setup_required:
+            logger.info("Deferring startup initial orbital sync because setup is still required.")
+        else:
+            asyncio.create_task(run_initial_sync(background_task_manager))
 
     # Start the background task scheduler
     scheduler = start_scheduler(sio, process_manager, background_task_manager)

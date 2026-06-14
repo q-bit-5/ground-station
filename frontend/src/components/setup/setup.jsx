@@ -24,10 +24,8 @@ import {
     Box,
     Button,
     Checkbox,
-    Chip,
     CircularProgress,
     FormControlLabel,
-    LinearProgress,
     Stack,
     Step,
     StepLabel,
@@ -37,14 +35,14 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import Grid from '@mui/material/Grid';
-import CloudDoneIcon from '@mui/icons-material/CloudDone';
-import CloudOffIcon from '@mui/icons-material/CloudOff';
-import SyncIcon from '@mui/icons-material/Sync';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { toast } from '../../utils/toast-with-timestamp.jsx';
-import { setupAdmin } from '../auth/auth-slice.jsx';
+import { loginUser } from '../auth/auth-slice.jsx';
 import { useSocket } from '../common/socket.jsx';
 import { fetchSyncState } from '../satellites/synchronize-slice.jsx';
 import { SettingsActionFooter, SettingsSection } from '../settings/shared/index.js';
@@ -54,6 +52,54 @@ const WIZARD_STEP_IDENTITY = 1;
 const WIZARD_STEP_COORDINATES = 2;
 const WIZARD_STEP_REVIEW = 3;
 const WIZARD_STEP_ADMIN = 4;
+const WIZARD_STEP_FINALIZE = 5;
+
+const CALL_STATUS_IDLE = 'idle';
+const CALL_STATUS_PENDING = 'pending';
+const CALL_STATUS_SUCCESS = 'success';
+const CALL_STATUS_ERROR = 'error';
+
+const createInitialCallChecklist = () => ({
+    location: { status: CALL_STATUS_IDLE, detail: '' },
+    soapy: { status: CALL_STATUS_IDLE, detail: '' },
+    orbital: { status: CALL_STATUS_IDLE, detail: '' },
+    admin: { status: CALL_STATUS_IDLE, detail: '' },
+});
+
+const createInitialSoapyRuntimeState = () => ({
+    status: 'idle',
+    detail: '',
+    serverCount: null,
+    sdrCount: null,
+    lastUpdate: null,
+});
+
+const isAlreadyRunningError = (value) => String(value || '').toLowerCase().includes('already running');
+
+const isSoapyTask = (task) => {
+    const taskName = String(task?.name || '').toLowerCase();
+    const taskCommand = String(task?.command || '').toLowerCase();
+    return taskName.includes('soapysdr') || taskCommand.includes('soapysdr');
+};
+
+const isOrbitalSyncTask = (task) => {
+    const taskName = String(task?.name || '').toLowerCase();
+    const taskCommand = String(task?.command || '').toLowerCase();
+    return (
+        taskName.includes('orbital') ||
+        taskCommand.includes('orbital') ||
+        taskName.includes('tle sync') ||
+        taskCommand.includes('tle_sync')
+    );
+};
+
+const getTaskStartTime = (task) => Number(task?.start_time || 0);
+
+const getLatestTask = (tasks, predicate) => (
+    (Array.isArray(tasks) ? tasks : [])
+        .filter((task) => predicate(task))
+        .sort((first, second) => getTaskStartTime(second) - getTaskStartTime(first))[0] || null
+);
 
 const FULL_RESTORE_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const FULL_RESTORE_MAX_FILE_SIZE_MB = FULL_RESTORE_MAX_FILE_SIZE_BYTES / (1024 * 1024);
@@ -77,7 +123,7 @@ const SetupWizard = ({
     const { socket } = useSocket();
     const dispatch = useDispatch();
     const { t } = useTranslation('settings');
-    const { syncState, synchronizing, status: syncStatus, error: syncError } = useSelector(
+    const { syncState, synchronizing, error: syncError } = useSelector(
         (state) => state.syncSatellite
     );
     const { loadingAction: authLoadingAction, error: authError } = useSelector((state) => state.auth);
@@ -92,8 +138,14 @@ const SetupWizard = ({
     const [adminPassword, setAdminPassword] = React.useState('');
     const [adminConfirmPassword, setAdminConfirmPassword] = React.useState('');
     const [adminLocalError, setAdminLocalError] = React.useState('');
+    const [wizardSyncState, setWizardSyncState] = React.useState(syncState || null);
+    const [wizardFinalizing, setWizardFinalizing] = React.useState(false);
+    const [callChecklist, setCallChecklist] = React.useState(createInitialCallChecklist);
+    const [soapyRuntimeState, setSoapyRuntimeState] = React.useState(createInitialSoapyRuntimeState);
 
     const showWizardAdminStep = Boolean(wizardRequireAdminSetup);
+    const showWizardFinalizeStep = showWizardAdminStep;
+    const wizardSaveStep = WIZARD_STEP_REVIEW;
     const stationName = String(reviewData.stationName || '');
     const stationCallsignLabel = String(reviewData.stationCallsignLabel || '');
     const stationType = String(reviewData.stationType || 'stationary');
@@ -109,9 +161,12 @@ const SetupWizard = ({
                 defaultValue: 'Station Identity',
             }),
             [WIZARD_STEP_COORDINATES]: t('location.wizard_step_coordinates', {
-                defaultValue: 'Coordinates & Map',
+                defaultValue: 'Location',
             }),
-            [WIZARD_STEP_REVIEW]: t('location.wizard_step_review', { defaultValue: 'Review & Save' }),
+            [WIZARD_STEP_REVIEW]: t('location.wizard_step_review', { defaultValue: 'Review' }),
+            [WIZARD_STEP_FINALIZE]: t('location.wizard_step_finalize', {
+                defaultValue: 'Finalize Setup',
+            }),
         }),
         [t]
     );
@@ -124,6 +179,7 @@ const SetupWizard = ({
                       WIZARD_STEP_IDENTITY,
                       WIZARD_STEP_COORDINATES,
                       WIZARD_STEP_REVIEW,
+                      WIZARD_STEP_FINALIZE,
                   ]
                 : [
                       WIZARD_STEP_RESTORE,
@@ -135,60 +191,215 @@ const SetupWizard = ({
     );
     const wizardCurrentOrderIndex = Math.max(0, wizardStepOrder.indexOf(wizardStep));
     const isWizardLastStep = wizardCurrentOrderIndex === wizardStepOrder.length - 1;
+    const isWizardSaveStep = wizardStep === wizardSaveStep;
+    const isWizardFinalizeStep = showWizardFinalizeStep && wizardStep === WIZARD_STEP_FINALIZE;
     const canAdvanceWizard = wizardStep !== WIZARD_STEP_COORDINATES || hasLocation;
+    const canSaveInReviewStep = showWizardAdminStep
+        ? hasLocation && wizardBackendReady
+        : canSave && isDifferentFromSaved && wizardBackendReady;
 
+    const setChecklistStatus = React.useCallback((key, status, detail = '') => {
+        setCallChecklist((previous) => ({
+            ...previous,
+            [key]: {
+                status,
+                detail,
+            },
+        }));
+    }, []);
+
+    const callApi = React.useCallback(
+        async (cmd, data = null) => {
+            if (!socket || !socket.connected) {
+                return { success: false, error: 'Backend connection is not ready.' };
+            }
+
+            try {
+                const reply = await socket.emitWithAck('api.call', { cmd, data });
+                return reply || { success: false, error: 'No response from backend.' };
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error?.message || String(error),
+                };
+            }
+        },
+        [socket]
+    );
+
+    const createSetupAdmin = React.useCallback(async ({ username, password }) => {
+        try {
+            const response = await fetch('/api/auth/setup-admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                return {
+                    success: false,
+                    error: payload?.detail || payload?.error || 'Failed to create initial admin account.',
+                };
+            }
+
+            return {
+                success: true,
+                data: payload || null,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error?.message || 'Failed to create initial admin account.',
+            };
+        }
+    }, []);
+
+    const refreshOrbitalSyncState = React.useCallback(async () => {
+        if (!socket || !socket.connected) return;
+
+        try {
+            const state = await dispatch(fetchSyncState({ socket })).unwrap();
+            setWizardSyncState(state);
+            return state;
+        } catch {
+            // Keep existing state if fetch fails; live events can still update it.
+            return null;
+        }
+    }, [dispatch, socket]);
+
+    const hydrateFinalizeRuntimeState = React.useCallback(async () => {
+        if (!socket || !socket.connected) return;
+
+        const taskListReply = await callApi('background-task.list', { only_running: false });
+        const tasks = taskListReply?.success && Array.isArray(taskListReply.tasks)
+            ? taskListReply.tasks
+            : [];
+
+        const latestSoapyTask = getLatestTask(tasks, isSoapyTask);
+        if (latestSoapyTask) {
+            const soapyTaskStatus = String(latestSoapyTask.status || '').toLowerCase();
+            if (soapyTaskStatus === 'running') {
+                setSoapyRuntimeState((previous) => ({
+                    ...previous,
+                    status: 'inprogress',
+                    detail: 'Discovery task is running.',
+                }));
+            } else if (soapyTaskStatus === 'completed') {
+                setSoapyRuntimeState((previous) => ({
+                    ...previous,
+                    status: 'complete',
+                    detail: 'Discovery task completed.',
+                    lastUpdate: Date.now(),
+                }));
+            } else if (soapyTaskStatus === 'failed') {
+                setSoapyRuntimeState((previous) => ({
+                    ...previous,
+                    status: 'error',
+                    detail: 'Discovery task failed.',
+                    lastUpdate: Date.now(),
+                }));
+            }
+        }
+
+        const latestOrbitalTask = getLatestTask(tasks, isOrbitalSyncTask);
+        setCallChecklist((previous) => {
+            const next = { ...previous };
+
+            if (latestSoapyTask && previous.soapy.status === CALL_STATUS_IDLE) {
+                const soapyTaskStatus = String(latestSoapyTask.status || '').toLowerCase();
+                if (soapyTaskStatus === 'running') {
+                    next.soapy = { status: CALL_STATUS_PENDING, detail: 'Discovery currently running.' };
+                } else if (soapyTaskStatus === 'completed') {
+                    next.soapy = { status: CALL_STATUS_SUCCESS, detail: 'Discovery already completed.' };
+                } else if (soapyTaskStatus === 'failed') {
+                    next.soapy = { status: CALL_STATUS_ERROR, detail: 'Discovery task failed.' };
+                }
+            }
+
+            if (latestOrbitalTask && previous.orbital.status === CALL_STATUS_IDLE) {
+                const orbitalTaskStatus = String(latestOrbitalTask.status || '').toLowerCase();
+                if (orbitalTaskStatus === 'running') {
+                    next.orbital = {
+                        status: CALL_STATUS_PENDING,
+                        detail: 'Synchronization currently running.',
+                    };
+                } else if (orbitalTaskStatus === 'completed') {
+                    next.orbital = {
+                        status: CALL_STATUS_SUCCESS,
+                        detail: 'Synchronization task already completed.',
+                    };
+                } else if (orbitalTaskStatus === 'failed') {
+                    next.orbital = { status: CALL_STATUS_ERROR, detail: 'Synchronization task failed.' };
+                }
+            }
+
+            return next;
+        });
+
+        await refreshOrbitalSyncState();
+    }, [callApi, refreshOrbitalSyncState, socket]);
+
+    const effectiveSyncState = wizardSyncState || syncState;
     const syncLastUpdateText = React.useMemo(() => {
-        if (!syncState?.last_update) {
+        if (!effectiveSyncState?.last_update) {
             return t('location.state_unavailable', { defaultValue: 'Unavailable' });
         }
 
-        const timestamp = new Date(syncState.last_update);
+        const timestamp = new Date(effectiveSyncState.last_update);
         if (Number.isNaN(timestamp.getTime())) {
-            return String(syncState.last_update);
+            return String(effectiveSyncState.last_update);
         }
 
         return timestamp.toLocaleString();
-    }, [syncState?.last_update, t]);
+    }, [effectiveSyncState?.last_update, t]);
     const orbitalSyncUiState = React.useMemo(() => {
-        const rawStatus = String(syncState?.status || '').toLowerCase();
+        const rawStatus = String(effectiveSyncState?.status || '').toLowerCase();
         const normalizedStatus =
             rawStatus === 'in_progress' || rawStatus === 'inprogress' || rawStatus === 'started'
                 ? 'inprogress'
                 : rawStatus;
-        const hasErrors = Array.isArray(syncState?.errors) && syncState.errors.length > 0;
-        const primaryError = hasErrors ? syncState.errors[0] : syncError || null;
+        const hasErrors =
+            Array.isArray(effectiveSyncState?.errors) && effectiveSyncState.errors.length > 0;
+        const primaryError = hasErrors ? effectiveSyncState.errors[0] : syncError || null;
+        const startRequested = callChecklist.orbital.status === CALL_STATUS_PENDING;
 
-        if (normalizedStatus === 'inprogress' || synchronizing) {
-            const progressValue = Number.isFinite(Number(syncState?.progress))
-                ? Number(syncState?.progress)
-                : 0;
+        if (normalizedStatus === 'inprogress' || synchronizing || startRequested) {
             return {
                 label: t('location.orbital_sync_in_progress', {
                     defaultValue: 'Synchronization in progress',
                 }),
                 color: 'info',
-                icon: <SyncIcon />,
-                progress: Math.max(0, Math.min(100, progressValue)),
+                loading: true,
                 error: null,
             };
         }
 
-        if ((normalizedStatus === 'complete' && syncState?.success === false) || hasErrors || primaryError) {
+        if (
+            (normalizedStatus === 'complete' && effectiveSyncState?.success === false) ||
+            hasErrors ||
+            primaryError ||
+            callChecklist.orbital.status === CALL_STATUS_ERROR
+        ) {
             return {
                 label: t('location.orbital_sync_failed', { defaultValue: 'Synchronization failed' }),
                 color: 'error',
-                icon: <CloudOffIcon />,
-                progress: null,
+                loading: false,
                 error: primaryError || t('location.state_unavailable', { defaultValue: 'Unavailable' }),
             };
         }
 
-        if (normalizedStatus === 'complete' && syncState?.success === true) {
+        if (normalizedStatus === 'complete' && effectiveSyncState?.success === true) {
             return {
                 label: t('location.orbital_sync_ok', { defaultValue: 'Synchronization complete' }),
                 color: 'success',
-                icon: <CloudDoneIcon />,
-                progress: null,
+                loading: false,
                 error: null,
             };
         }
@@ -198,27 +409,164 @@ const SetupWizard = ({
                 defaultValue: 'Synchronization status unavailable',
             }),
             color: 'default',
-            icon: <CloudOffIcon />,
-            progress: null,
+            loading: false,
             error: null,
         };
     }, [
+        callChecklist.orbital.status,
+        effectiveSyncState?.errors,
+        effectiveSyncState?.status,
+        effectiveSyncState?.success,
         syncError,
-        syncState?.errors,
-        syncState?.progress,
-        syncState?.status,
-        syncState?.success,
         synchronizing,
         t,
     ]);
 
     React.useEffect(() => {
-        if (wizardStep !== WIZARD_STEP_REVIEW || !socket || !socket.connected) {
+        if (
+            (wizardStep !== WIZARD_STEP_REVIEW && wizardStep !== WIZARD_STEP_FINALIZE) ||
+            !socket ||
+            !socket.connected
+        ) {
             return;
         }
 
-        dispatch(fetchSyncState({ socket }));
-    }, [dispatch, socket, wizardStep]);
+        if (wizardStep === WIZARD_STEP_FINALIZE) {
+            if (showWizardAdminStep && callChecklist.admin.status === CALL_STATUS_SUCCESS) {
+                // setup-admin flips setup_required=false; unauthenticated setup socket
+                // can still receive live events but cannot issue api.call commands anymore.
+                return;
+            }
+            void hydrateFinalizeRuntimeState();
+            return;
+        }
+
+        void refreshOrbitalSyncState();
+    }, [
+        callChecklist.admin.status,
+        hydrateFinalizeRuntimeState,
+        refreshOrbitalSyncState,
+        showWizardAdminStep,
+        socket,
+        wizardStep,
+    ]);
+
+    React.useEffect(() => {
+        if (!socket) {
+            return;
+        }
+
+        // Setup mode does not run the app-wide socket event hook, so listen locally.
+        const handleSatSyncEvents = (data) => {
+            if (data && typeof data === 'object') {
+                setWizardSyncState(data);
+            }
+        };
+
+        const handleSoapyDiscoveryStarted = () => {
+            setSoapyRuntimeState((previous) => ({
+                ...previous,
+                status: 'inprogress',
+                detail: 'Discovery running...',
+            }));
+        };
+
+        const handleSoapyDiscoveryComplete = (data) => {
+            setSoapyRuntimeState({
+                status: 'complete',
+                detail: 'Discovery complete.',
+                serverCount: Number.isFinite(Number(data?.server_count))
+                    ? Number(data.server_count)
+                    : null,
+                sdrCount: Number.isFinite(Number(data?.sdr_count))
+                    ? Number(data.sdr_count)
+                    : Number.isFinite(Number(data?.active_count))
+                        ? Number(data.active_count)
+                        : null,
+                lastUpdate: Date.now(),
+            });
+        };
+
+        const handleSoapyRefreshComplete = (data) => {
+            setSoapyRuntimeState((previous) => ({
+                ...previous,
+                status: 'complete',
+                detail: 'Discovery refresh complete.',
+                sdrCount: Number.isFinite(Number(data?.sdr_count))
+                    ? Number(data.sdr_count)
+                    : Number.isFinite(Number(data?.active_count))
+                        ? Number(data.active_count)
+                        : previous.sdrCount,
+                lastUpdate: Date.now(),
+            }));
+        };
+
+        const handleSoapyDiscoveryError = (data) => {
+            setSoapyRuntimeState((previous) => ({
+                ...previous,
+                status: 'error',
+                detail: String(data?.error || 'Discovery failed.'),
+                lastUpdate: Date.now(),
+            }));
+        };
+
+        const handleBackgroundTaskStarted = (data) => {
+            if (!isSoapyTask(data)) return;
+            setSoapyRuntimeState((previous) => ({
+                ...previous,
+                status: 'inprogress',
+                detail: 'Discovery task started.',
+            }));
+        };
+
+        const handleBackgroundTaskCompleted = (data) => {
+            if (!isSoapyTask(data)) return;
+            if (String(data?.status || '').toLowerCase() === 'failed') {
+                setSoapyRuntimeState((previous) => ({
+                    ...previous,
+                    status: 'error',
+                    detail: 'Discovery task failed.',
+                    lastUpdate: Date.now(),
+                }));
+                return;
+            }
+            setSoapyRuntimeState((previous) => ({
+                ...previous,
+                status: previous.status === 'complete' ? 'complete' : 'idle',
+                lastUpdate: Date.now(),
+            }));
+        };
+
+        const handleBackgroundTaskError = (data) => {
+            if (!isSoapyTask(data)) return;
+            setSoapyRuntimeState((previous) => ({
+                ...previous,
+                status: 'error',
+                detail: String(data?.error || 'Discovery task failed.'),
+                lastUpdate: Date.now(),
+            }));
+        };
+
+        socket.on('sat-sync-events', handleSatSyncEvents);
+        socket.on('soapysdr:discovery_started', handleSoapyDiscoveryStarted);
+        socket.on('soapysdr:discovery_complete', handleSoapyDiscoveryComplete);
+        socket.on('soapysdr:refresh_complete', handleSoapyRefreshComplete);
+        socket.on('soapysdr:discovery_error', handleSoapyDiscoveryError);
+        socket.on('background_task:started', handleBackgroundTaskStarted);
+        socket.on('background_task:completed', handleBackgroundTaskCompleted);
+        socket.on('background_task:error', handleBackgroundTaskError);
+
+        return () => {
+            socket.off('sat-sync-events', handleSatSyncEvents);
+            socket.off('soapysdr:discovery_started', handleSoapyDiscoveryStarted);
+            socket.off('soapysdr:discovery_complete', handleSoapyDiscoveryComplete);
+            socket.off('soapysdr:refresh_complete', handleSoapyRefreshComplete);
+            socket.off('soapysdr:discovery_error', handleSoapyDiscoveryError);
+            socket.off('background_task:started', handleBackgroundTaskStarted);
+            socket.off('background_task:completed', handleBackgroundTaskCompleted);
+            socket.off('background_task:error', handleBackgroundTaskError);
+        };
+    }, [socket]);
 
     const validateAdminDraft = () => {
         const normalizedUsername = adminUsername.trim();
@@ -239,7 +587,7 @@ const SetupWizard = ({
     };
 
     const handleWizardNext = () => {
-        if (isWizardLastStep || !canAdvanceWizard) return;
+        if (isWizardLastStep || isWizardSaveStep || !canAdvanceWizard) return;
 
         if (wizardStep === WIZARD_STEP_ADMIN && !validateAdminDraft()) {
             return;
@@ -261,14 +609,135 @@ const SetupWizard = ({
     const handleWizardSave = async () => {
         if (!wizardBackendReady || !hasLocation || typeof onPersistLocation !== 'function') return;
 
-        // Persist location before admin setup so setup state remains resumable and consistent.
-        if (isDifferentFromSaved || !hasPersistedLocation) {
-            const saveSucceeded = await onPersistLocation();
-            if (!saveSucceeded) {
-                return;
+        if (!showWizardAdminStep) {
+            if (isDifferentFromSaved || !hasPersistedLocation) {
+                const saveSucceeded = await onPersistLocation();
+                if (!saveSucceeded) {
+                    return;
+                }
             }
+            if (typeof onWizardCompleted === 'function') {
+                onWizardCompleted();
+            }
+            return;
         }
 
+        if (!validateAdminDraft()) {
+            return;
+        }
+
+        const normalizedUsername = adminUsername.trim();
+
+        setWizardFinalizing(true);
+        setCallChecklist(createInitialCallChecklist());
+        setSoapyRuntimeState(createInitialSoapyRuntimeState());
+        try {
+            // Setup flow always saves location as the first finalization call.
+            setChecklistStatus('location', CALL_STATUS_PENDING, 'Submitting location...');
+            const saveSucceeded = await onPersistLocation();
+            if (!saveSucceeded) {
+                setChecklistStatus('location', CALL_STATUS_ERROR, 'Location submission failed.');
+                return;
+            }
+            setChecklistStatus('location', CALL_STATUS_SUCCESS, 'Location saved.');
+
+            let runningTasks = [];
+            const runningReply = await callApi('background-task.list', { only_running: true });
+            if (runningReply?.success && Array.isArray(runningReply.tasks)) {
+                runningTasks = runningReply.tasks;
+            }
+
+            // Start or confirm SoapySDR detection status.
+            if (runningTasks.some((task) => isSoapyTask(task))) {
+                setChecklistStatus('soapy', CALL_STATUS_SUCCESS, 'Discovery already running.');
+                setSoapyRuntimeState((previous) => ({
+                    ...previous,
+                    status: 'inprogress',
+                    detail: 'Discovery already running.',
+                }));
+            } else {
+                setChecklistStatus('soapy', CALL_STATUS_PENDING, 'Starting SoapySDR discovery...');
+                const soapyStartReply = await callApi('background-task.start', {
+                    task_name: 'soapysdr_discovery',
+                    args: [],
+                    kwargs: {
+                        mode: 'single',
+                        refresh_interval: 120,
+                    },
+                    name: 'SoapySDR Discovery (setup)',
+                });
+
+                if (soapyStartReply?.success) {
+                    setChecklistStatus('soapy', CALL_STATUS_SUCCESS, 'Discovery task submitted.');
+                    setSoapyRuntimeState((previous) => ({
+                        ...previous,
+                        status: 'inprogress',
+                        detail: 'Discovery task submitted.',
+                    }));
+                } else {
+                    setChecklistStatus(
+                        'soapy',
+                        CALL_STATUS_ERROR,
+                        String(soapyStartReply?.error || 'Failed to start discovery.')
+                    );
+                    setSoapyRuntimeState((previous) => ({
+                        ...previous,
+                        status: 'error',
+                        detail: String(soapyStartReply?.error || 'Failed to start discovery.'),
+                    }));
+                }
+            }
+
+            // Start orbital sync or acknowledge existing in-progress sync.
+            if (runningTasks.some((task) => isOrbitalSyncTask(task))) {
+                setChecklistStatus('orbital', CALL_STATUS_SUCCESS, 'Synchronization already running.');
+            } else {
+                setChecklistStatus('orbital', CALL_STATUS_PENDING, 'Starting orbital synchronization...');
+                const orbitalSyncReply = await callApi('sync-satellite-data', null);
+                if (orbitalSyncReply?.success || isAlreadyRunningError(orbitalSyncReply?.error)) {
+                    setChecklistStatus(
+                        'orbital',
+                        CALL_STATUS_SUCCESS,
+                        orbitalSyncReply?.success
+                            ? 'Synchronization task submitted.'
+                            : 'Synchronization already running.'
+                    );
+                } else {
+                    setChecklistStatus(
+                        'orbital',
+                        CALL_STATUS_ERROR,
+                        String(orbitalSyncReply?.error || 'Failed to start synchronization.')
+                    );
+                }
+            }
+
+            await refreshOrbitalSyncState();
+
+            // Create admin as part of the same save/submit transaction batch.
+            // We call the setup endpoint directly to keep the wizard screen open
+            // and surface the result in the final checklist view.
+            setChecklistStatus('admin', CALL_STATUS_PENDING, 'Creating admin user...');
+            const setupAdminReply = await createSetupAdmin({
+                username: normalizedUsername,
+                password: adminPassword,
+            });
+            if (setupAdminReply?.success) {
+                setChecklistStatus('admin', CALL_STATUS_SUCCESS, 'Admin user created.');
+            } else {
+                setChecklistStatus(
+                    'admin',
+                    CALL_STATUS_ERROR,
+                    String(setupAdminReply?.error || 'Failed to create admin user.')
+                );
+            }
+
+            setWizardStep(WIZARD_STEP_FINALIZE);
+        } finally {
+            setWizardFinalizing(false);
+        }
+    };
+
+    const handleWizardFinalize = async () => {
         if (!showWizardAdminStep) {
             if (typeof onWizardCompleted === 'function') {
                 onWizardCompleted();
@@ -284,16 +753,18 @@ const SetupWizard = ({
 
         try {
             await dispatch(
-                setupAdmin({
+                loginUser({
                     username: normalizedUsername,
                     password: adminPassword,
+                    keepSessionActive: false,
                 })
             ).unwrap();
+            setAdminLocalError('');
             if (typeof onWizardCompleted === 'function') {
                 onWizardCompleted();
             }
-        } catch {
-            // Error state is surfaced by auth slice and rendered in this step.
+        } catch (error) {
+            setAdminLocalError(String(error || 'Failed to sign in.'));
         }
     };
 
@@ -432,6 +903,114 @@ const SetupWizard = ({
         </SettingsSection>
     );
 
+    const soapyLastUpdateText = React.useMemo(() => {
+        if (!soapyRuntimeState.lastUpdate) {
+            return t('location.state_unavailable', { defaultValue: 'Unavailable' });
+        }
+        const timestamp = new Date(soapyRuntimeState.lastUpdate);
+        return Number.isNaN(timestamp.getTime())
+            ? t('location.state_unavailable', { defaultValue: 'Unavailable' })
+            : timestamp.toLocaleString();
+    }, [soapyRuntimeState.lastUpdate, t]);
+
+    const soapyUiState = React.useMemo(() => {
+        const runtimeStatus = String(soapyRuntimeState.status || '').toLowerCase();
+
+        if (runtimeStatus === 'inprogress' || callChecklist.soapy.status === CALL_STATUS_PENDING) {
+            return {
+                label: t('location.soapy_discovery_in_progress', {
+                    defaultValue: 'Discovery in progress',
+                }),
+                color: 'info',
+                loading: true,
+            };
+        }
+
+        if (runtimeStatus === 'complete') {
+            return {
+                label: t('location.soapy_discovery_complete', {
+                    defaultValue: 'Discovery complete',
+                }),
+                color: 'success',
+                loading: false,
+            };
+        }
+
+        if (runtimeStatus === 'error' || callChecklist.soapy.status === CALL_STATUS_ERROR) {
+            return {
+                label: t('location.soapy_discovery_failed', {
+                    defaultValue: 'Discovery failed',
+                }),
+                color: 'error',
+                loading: false,
+            };
+        }
+
+        if (callChecklist.soapy.status === CALL_STATUS_SUCCESS) {
+            return {
+                label: t('location.soapy_discovery_submitted', {
+                    defaultValue: 'Discovery task submitted',
+                }),
+                color: 'success',
+                loading: false,
+            };
+        }
+
+        return {
+            label: t('location.soapy_discovery_idle', {
+                defaultValue: 'Discovery status unavailable',
+            }),
+            color: 'default',
+            loading: false,
+        };
+    }, [callChecklist.soapy.status, soapyRuntimeState.status, t]);
+
+    const checklistItems = React.useMemo(
+        () => [
+            {
+                key: 'location',
+                label: t('location.setup_call_location', { defaultValue: 'Location submission' }),
+                value: callChecklist.location,
+            },
+            {
+                key: 'soapy',
+                label: t('location.setup_call_soapy', { defaultValue: 'SoapySDR discovery start' }),
+                value: callChecklist.soapy,
+            },
+            {
+                key: 'orbital',
+                label: t('location.setup_call_orbital', { defaultValue: 'Orbital sync start' }),
+                value: callChecklist.orbital,
+            },
+            {
+                key: 'admin',
+                label: t('location.setup_call_admin', { defaultValue: 'Admin user creation' }),
+                value: callChecklist.admin,
+            },
+        ],
+        [callChecklist.admin, callChecklist.location, callChecklist.orbital, callChecklist.soapy, t]
+    );
+
+    const getChecklistStatusColor = (status) => {
+        if (status === CALL_STATUS_SUCCESS) return 'success.main';
+        if (status === CALL_STATUS_PENDING) return 'info.main';
+        if (status === CALL_STATUS_ERROR) return 'error.main';
+        return 'text.secondary';
+    };
+
+    const getChecklistStatusLabel = (status) => {
+        if (status === CALL_STATUS_SUCCESS) {
+            return t('location.state_done', { defaultValue: 'Done' });
+        }
+        if (status === CALL_STATUS_PENDING) {
+            return t('location.state_in_progress', { defaultValue: 'In progress' });
+        }
+        if (status === CALL_STATUS_ERROR) {
+            return t('location.state_failed', { defaultValue: 'Failed' });
+        }
+        return t('location.state_waiting', { defaultValue: 'Waiting' });
+    };
+
     const wizardReviewSection = (
         <SettingsSection
             title={t('location.wizard_review_title', { defaultValue: 'Review Configuration' })}
@@ -480,54 +1059,6 @@ const SetupWizard = ({
         </SettingsSection>
     );
 
-    const wizardOrbitalSyncSection = (
-        <SettingsSection
-            title={t('location.orbital_sync_title', { defaultValue: 'Orbital Data Sync' })}
-            sx={sectionSx}
-        >
-            <Stack spacing={1.1}>
-                <Typography variant="caption" color="text.secondary">
-                    {t('location.orbital_sync_review_help', {
-                        defaultValue: 'Current backend synchronization state for orbital data.',
-                    })}
-                </Typography>
-                <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    alignItems={{ xs: 'stretch', sm: 'center' }}
-                >
-                    <Chip
-                        size="small"
-                        color={orbitalSyncUiState.color}
-                        icon={orbitalSyncUiState.icon}
-                        label={orbitalSyncUiState.label}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                        {t('location.orbital_sync_last_update', { defaultValue: 'Last update' })}:{' '}
-                        {syncLastUpdateText}
-                    </Typography>
-                </Stack>
-                {orbitalSyncUiState.progress != null && (
-                    <LinearProgress
-                        variant="determinate"
-                        value={orbitalSyncUiState.progress}
-                        sx={{ height: 8, borderRadius: 1 }}
-                    />
-                )}
-                {orbitalSyncUiState.error && (
-                    <Typography variant="caption" color="error.main">
-                        {orbitalSyncUiState.error}
-                    </Typography>
-                )}
-                {syncStatus === 'loading' && (
-                    <Typography variant="caption" color="text.secondary">
-                        {t('location.state_loading', { defaultValue: 'Loading...' })}
-                    </Typography>
-                )}
-            </Stack>
-        </SettingsSection>
-    );
-
     const wizardReviewContent = (
         <Grid container spacing={2} columns={12} alignItems="stretch">
             <Grid
@@ -554,17 +1085,257 @@ const SetupWizard = ({
             >
                 {stationCoordinatesSection}
             </Grid>
+        </Grid>
+    );
+
+    const wizardChecklistSection = (
+        <SettingsSection
+            title={t('location.setup_checklist_title', { defaultValue: 'Setup checklist' })}
+            description={t('location.setup_checklist_help', {
+                defaultValue: 'Calls that were executed when you pressed Save and Continue.',
+            })}
+            sx={sectionSx}
+        >
+            <Stack spacing={0.75}>
+                {checklistItems.map((item) => (
+                    <Box
+                        key={item.key}
+                        sx={{
+                            px: 1,
+                            py: 0.75,
+                            borderRadius: 0.75,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                        }}
+                    >
+                        <Stack
+                            direction="row"
+                            spacing={0.5}
+                            alignItems="center"
+                            justifyContent="space-between"
+                        >
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                {item.label}
+                            </Typography>
+                            <Stack direction="row" spacing={0.35} alignItems="center">
+                                {item.value.status === CALL_STATUS_SUCCESS && (
+                                    <CheckCircleOutlineIcon
+                                        fontSize="small"
+                                        sx={{ color: getChecklistStatusColor(item.value.status) }}
+                                    />
+                                )}
+                                {item.value.status === CALL_STATUS_PENDING && (
+                                    <HourglassEmptyIcon
+                                        fontSize="small"
+                                        sx={{ color: getChecklistStatusColor(item.value.status) }}
+                                    />
+                                )}
+                                {item.value.status === CALL_STATUS_ERROR && (
+                                    <ErrorOutlineIcon
+                                        fontSize="small"
+                                        sx={{ color: getChecklistStatusColor(item.value.status) }}
+                                    />
+                                )}
+                                <Typography
+                                    variant="caption"
+                                    sx={{ color: getChecklistStatusColor(item.value.status), lineHeight: 1.1 }}
+                                >
+                                    {getChecklistStatusLabel(item.value.status)}
+                                </Typography>
+                            </Stack>
+                        </Stack>
+                        {item.value.detail && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
+                                {item.value.detail}
+                            </Typography>
+                        )}
+                    </Box>
+                ))}
+            </Stack>
+        </SettingsSection>
+    );
+
+    const getStatusTone = (statusColor) => {
+        if (statusColor === 'success') return { text: 'success.main', bg: 'success' };
+        if (statusColor === 'info') return { text: 'info.main', bg: 'info' };
+        if (statusColor === 'error') return { text: 'error.main', bg: 'error' };
+        return { text: 'text.secondary', bg: 'grey' };
+    };
+
+    const wizardTaskStatusSection = (
+        <SettingsSection
+            title={t('location.setup_task_status_title', { defaultValue: 'Background Task Status' })}
+            description={t('location.setup_task_status_help', {
+                defaultValue: 'Live runtime status for orbital synchronization and SoapySDR discovery.',
+            })}
+            sx={sectionSx}
+        >
+            <Stack spacing={0.75}>
+                <Box
+                    sx={{
+                        px: 1,
+                        py: 0.85,
+                        borderRadius: 0.75,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                    }}
+                >
+                    <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" spacing={0.7} alignItems="center" sx={{ minWidth: 0 }}>
+                            {orbitalSyncUiState.loading && <CircularProgress size={13} thickness={5.5} />}
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.15 }}>
+                                {t('location.orbital_sync_title', { defaultValue: 'Orbital Data Sync' })}
+                            </Typography>
+                        </Stack>
+                        <Box
+                            sx={{
+                                px: 0.7,
+                                py: 0.2,
+                                borderRadius: 5,
+                                bgcolor: (theme) =>
+                                    alpha(
+                                        theme.palette[getStatusTone(orbitalSyncUiState.color).bg].main,
+                                        theme.palette.mode === 'dark' ? 0.18 : 0.12
+                                    ),
+                            }}
+                        >
+                            <Typography
+                                variant="caption"
+                                sx={{ color: getStatusTone(orbitalSyncUiState.color).text, lineHeight: 1.1 }}
+                            >
+                                {orbitalSyncUiState.label}
+                            </Typography>
+                        </Box>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
+                        {t('location.orbital_sync_last_update', { defaultValue: 'Last update' })}: {syncLastUpdateText}
+                    </Typography>
+                    {orbitalSyncUiState.error && (
+                        <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.2, lineHeight: 1.2 }}>
+                            {orbitalSyncUiState.error}
+                        </Typography>
+                    )}
+                </Box>
+
+                <Box
+                    sx={{
+                        px: 1,
+                        py: 0.85,
+                        borderRadius: 0.75,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                    }}
+                >
+                    <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" spacing={0.7} alignItems="center" sx={{ minWidth: 0 }}>
+                            {soapyUiState.loading && <CircularProgress size={13} thickness={5.5} />}
+                            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.15 }}>
+                                {t('location.soapy_status_title', { defaultValue: 'SoapySDR Detection' })}
+                            </Typography>
+                        </Stack>
+                        <Box
+                            sx={{
+                                px: 0.7,
+                                py: 0.2,
+                                borderRadius: 5,
+                                bgcolor: (theme) =>
+                                    alpha(
+                                        theme.palette[getStatusTone(soapyUiState.color).bg].main,
+                                        theme.palette.mode === 'dark' ? 0.18 : 0.12
+                                    ),
+                            }}
+                        >
+                            <Typography
+                                variant="caption"
+                                sx={{ color: getStatusTone(soapyUiState.color).text, lineHeight: 1.1 }}
+                            >
+                                {soapyUiState.label}
+                            </Typography>
+                        </Box>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
+                        {t('location.soapy_last_update', { defaultValue: 'Last update' })}: {soapyLastUpdateText}
+                    </Typography>
+                    {(Number.isFinite(Number(soapyRuntimeState.serverCount)) ||
+                        Number.isFinite(Number(soapyRuntimeState.sdrCount))) && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2, lineHeight: 1.2 }}>
+                            {Number.isFinite(Number(soapyRuntimeState.serverCount))
+                                ? `${t('location.soapy_servers_found', { defaultValue: 'Servers found' })}: ${soapyRuntimeState.serverCount}`
+                                : null}
+                            {Number.isFinite(Number(soapyRuntimeState.serverCount)) &&
+                            Number.isFinite(Number(soapyRuntimeState.sdrCount))
+                                ? ' • '
+                                : ''}
+                            {Number.isFinite(Number(soapyRuntimeState.sdrCount))
+                                ? `${t('location.soapy_sdrs_found', { defaultValue: 'SDRs detected' })}: ${soapyRuntimeState.sdrCount}`
+                                : null}
+                        </Typography>
+                    )}
+                    {soapyRuntimeState.detail && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2, lineHeight: 1.2 }}>
+                            {soapyRuntimeState.detail}
+                        </Typography>
+                    )}
+                </Box>
+            </Stack>
+        </SettingsSection>
+    );
+
+    const wizardFinalizeContent = (
+        <Grid container spacing={2} columns={12} alignItems="stretch">
             <Grid
-                size={{ xs: 12, md: 12 }}
+                size={{ xs: 12, md: 6 }}
                 sx={{
                     display: 'flex',
                     '& > *': {
                         width: '100%',
+                        height: '100%',
                     },
                 }}
             >
-                {wizardOrbitalSyncSection}
+                {wizardReviewSection}
             </Grid>
+            <Grid
+                size={{ xs: 12, md: 6 }}
+                sx={{
+                    display: 'flex',
+                    '& > *': {
+                        width: '100%',
+                        height: '100%',
+                    },
+                }}
+            >
+                {stationCoordinatesSection}
+            </Grid>
+            <Grid
+                size={{ xs: 12, md: 6 }}
+                sx={{
+                    display: 'flex',
+                    '& > *': {
+                        width: '100%',
+                        height: '100%',
+                    },
+                }}
+            >
+                {wizardTaskStatusSection}
+            </Grid>
+            <Grid
+                size={{ xs: 12, md: 6 }}
+                sx={{
+                    display: 'flex',
+                    '& > *': {
+                        width: '100%',
+                        height: '100%',
+                    },
+                }}
+            >
+                {wizardChecklistSection}
+            </Grid>
+            {(adminLocalError || authError) && (
+                <Grid size={{ xs: 12, md: 12 }}>
+                    <Alert severity="error">{adminLocalError || authError}</Alert>
+                </Grid>
+            )}
         </Grid>
     );
 
@@ -629,6 +1400,24 @@ const SetupWizard = ({
         </SettingsSection>
     );
 
+    const wizardStatusText = (() => {
+        if (wizardStep === WIZARD_STEP_RESTORE) {
+            return t('location.wizard_restore_skip_help', {
+                defaultValue: 'You can skip this step and continue with a fresh setup.',
+            });
+        }
+        if (isWizardFinalizeStep) {
+            return t('location.setup_finalize_help', {
+                defaultValue: 'Review task status and complete setup.',
+            });
+        }
+        return '';
+    })();
+
+    const saveButtonLabel = locationSaving
+        ? t('location.state_saving', { defaultValue: 'Saving...' })
+        : t('location.finish_setup', { defaultValue: 'Save and Continue' });
+
     return (
         <>
             <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -648,7 +1437,7 @@ const SetupWizard = ({
                             borderColor: 'divider',
                         }}
                     >
-                        <Stepper activeStep={wizardStep} alternativeLabel>
+                        <Stepper activeStep={wizardCurrentOrderIndex} alternativeLabel>
                             {wizardStepOrder.map((stepId, index) => (
                                 <Step key={stepId} completed={index < wizardCurrentOrderIndex}>
                                     <StepLabel>{wizardStepLabels[stepId]}</StepLabel>
@@ -672,16 +1461,12 @@ const SetupWizard = ({
                     {wizardStep === WIZARD_STEP_REVIEW && <Stack spacing={2}>{wizardReviewContent}</Stack>}
 
                     {wizardStep === WIZARD_STEP_ADMIN && <Stack spacing={2}>{wizardAdminSection}</Stack>}
+
+                    {wizardStep === WIZARD_STEP_FINALIZE && <Stack spacing={2}>{wizardFinalizeContent}</Stack>}
                 </Box>
 
                 <SettingsActionFooter
-                    statusText={
-                        wizardStep === WIZARD_STEP_RESTORE
-                            ? t('location.wizard_restore_skip_help', {
-                                  defaultValue: 'You can skip this step and continue with a fresh setup.',
-                              })
-                            : ''
-                    }
+                    statusText={wizardStatusText}
                     mobileInline
                     sx={{
                         mt: 'auto',
@@ -699,27 +1484,41 @@ const SetupWizard = ({
                             wizardStep === WIZARD_STEP_RESTORE ||
                             locationSaving ||
                             wizardRestoreLoading ||
-                            authLoadingAction
+                            authLoadingAction ||
+                            wizardFinalizing
                         }
                     >
                         {t('location.back', { defaultValue: 'Back' })}
                     </Button>
-                    {isWizardLastStep ? (
+                    {isWizardSaveStep ? (
                         <Button
                             variant="contained"
-                            disabled={
-                                showWizardAdminStep
-                                    ? !hasLocation || authLoadingAction || locationSaving || !wizardBackendReady
-                                    : !canSave || !isDifferentFromSaved || !wizardBackendReady
-                            }
+                            disabled={!canSaveInReviewStep || wizardFinalizing || wizardRestoreLoading}
                             aria-label={t('location.save_location')}
                             onClick={handleWizardSave}
                         >
-                            {showWizardAdminStep && authLoadingAction
-                                ? 'Creating account...'
-                                : locationSaving
-                                  ? t('location.state_saving', { defaultValue: 'Saving...' })
-                                  : t('location.finish_setup', { defaultValue: 'Save and Continue' })}
+                            {wizardFinalizing
+                                ? t('location.state_working', { defaultValue: 'Working...' })
+                                : saveButtonLabel}
+                        </Button>
+                    ) : isWizardFinalizeStep ? (
+                        <Button
+                            variant="contained"
+                            disabled={
+                                authLoadingAction ||
+                                wizardFinalizing ||
+                                !wizardBackendReady ||
+                                callChecklist.location.status !== CALL_STATUS_SUCCESS ||
+                                callChecklist.admin.status !== CALL_STATUS_SUCCESS
+                            }
+                            aria-label={t('location.complete_setup', { defaultValue: 'Complete setup' })}
+                            onClick={handleWizardFinalize}
+                        >
+                            {authLoadingAction
+                                ? t('location.state_signing_in', {
+                                      defaultValue: 'Signing in...',
+                                  })
+                                : t('location.complete_setup', { defaultValue: 'Complete setup' })}
                         </Button>
                     ) : (
                         <Button
