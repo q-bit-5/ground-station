@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 
 const ASSET_BASE_URL = import.meta.env.BASE_URL || '/';
 const NORMALIZED_ASSET_BASE_URL = ASSET_BASE_URL.endsWith('/') ? ASSET_BASE_URL : `${ASSET_BASE_URL}/`;
@@ -246,12 +246,39 @@ const buildPassCurves = (scene = {}) => {
                 }))
                 .filter((point) => point.az != null && point.el != null)
                 .map((point) => ({ az: normalizeDegrees(point.az), el: point.el }));
+            const startMs = new Date(pass?.event_start || '').getTime();
+            const endMs = new Date(pass?.event_end || '').getTime();
             return {
                 key: String(pass?.target_key || '').trim(),
                 points: normalizedPoints,
+                startMs: Number.isFinite(startMs) ? startMs : null,
+                endMs: Number.isFinite(endMs) ? endMs : null,
             };
         })
         .filter((curve) => curve.key && curve.points.length >= 2);
+};
+
+const getPassCurveIntensity = (curve, nowMs, maxFutureLeadMs) => {
+    if (!curve || !Number.isFinite(nowMs)) return 0.55;
+    const startMs = Number(curve.startMs);
+    const endMs = Number(curve.endMs);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return 0.55;
+
+    // Active pass should remain fully emphasized.
+    if (nowMs >= startMs && nowMs <= endMs) return 1;
+
+    // Future passes fade gradually as their start time gets farther from now.
+    if (nowMs < startMs) {
+        const leadMs = startMs - nowMs;
+        const normalizedLead = clamp(leadMs / Math.max(1, maxFutureLeadMs), 0, 1);
+        return 1 - normalizedLead * 0.75;
+    }
+
+    // Past curves are still visible but de-emphasized.
+    const ageMs = nowMs - endMs;
+    const fadeWindowMs = 2 * 60 * 60 * 1000;
+    const normalizedAge = clamp(ageMs / fadeWindowMs, 0, 1);
+    return 0.5 - normalizedAge * 0.3;
 };
 
 const extractConstellationAbbreviation = (name) => {
@@ -777,11 +804,22 @@ function PlanetariumCanvas({
         }
 
         if (effectiveDisplayOptions.showPassCurves) {
+            const nowMs = sceneDate.getTime();
+            const maxFutureLeadMs = passCurves.reduce((maxLeadMs, curve) => {
+                if (!Number.isFinite(curve?.startMs) || curve.startMs <= nowMs) return maxLeadMs;
+                return Math.max(maxLeadMs, curve.startMs - nowMs);
+            }, 0);
             passCurves.forEach((curve) => {
                 const isSelected = selectedKeys.has(curve.key) || curve.key === focusedKey;
+                const intensity = getPassCurveIntensity(curve, nowMs, maxFutureLeadMs);
+                const selectedColor = alpha(theme.palette.warning.main, clamp(0.28 + intensity * 0.72, 0, 1));
+                const unselectedColor = alpha(
+                    theme.palette.mode === 'dark' ? '#8fb0ff' : '#3e6cc5',
+                    clamp(0.12 + intensity * 0.46, 0, 1),
+                );
                 drawPolyline(
                     curve.points,
-                    isSelected ? theme.palette.warning.main : 'rgba(125, 168, 255, 0.48)',
+                    isSelected ? selectedColor : unselectedColor,
                     isSelected ? 2 : 1,
                     isSelected ? [] : [4, 5],
                 );
