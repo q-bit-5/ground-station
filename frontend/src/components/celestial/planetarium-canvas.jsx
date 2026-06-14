@@ -366,6 +366,7 @@ function PlanetariumCanvas({
     selectedTargetKeys = [],
     focusTargetKey = '',
     rotatorCrosshair = null,
+    rotatorMinElevation = null,
     enableMapDragging = true,
     enableMapZooming = true,
     fitAllSignal = 0,
@@ -405,6 +406,13 @@ function PlanetariumCanvas({
             el,
         };
     }, [rotatorCrosshair]);
+    const normalizedRotatorMinElevation = useMemo(() => {
+        const minElevation = toFiniteNumber(rotatorMinElevation);
+        if (minElevation == null) return null;
+        // Horizon already defines 0°, so only render explicit positive hardware limits.
+        if (minElevation <= 0 || minElevation > 90) return null;
+        return minElevation;
+    }, [rotatorMinElevation]);
     const observerLocation = scene?.meta?.observer_location || null;
     const sceneDate = useMemo(() => resolveSceneDate(scene), [scene]);
     const observerName = String(observerLocation?.name || '').trim();
@@ -596,6 +604,7 @@ function PlanetariumCanvas({
         const mutedTextColor = theme.palette.text.secondary;
         const gridColor = theme.palette.mode === 'dark' ? 'rgba(160, 190, 255, 0.15)' : 'rgba(45, 65, 105, 0.15)';
         const horizonColor = theme.palette.mode === 'dark' ? 'rgba(120, 210, 190, 0.55)' : 'rgba(35, 120, 105, 0.45)';
+        const rotatorLimitColor = theme.palette.mode === 'dark' ? 'rgba(255, 181, 71, 0.85)' : 'rgba(176, 92, 0, 0.82)';
         const skyGradient = ctx.createRadialGradient(
             size.width / 2,
             size.height / 2,
@@ -692,6 +701,35 @@ function PlanetariumCanvas({
             for (let az = 0; az <= 360; az += 2) horizonPoints.push({ az, el: 0 });
             drawPolyline(horizonPoints, horizonColor, 1.6);
             drawHorizonTicks();
+        }
+        if (normalizedRotatorMinElevation != null) {
+            const minElevationPoints = [];
+            for (let az = 0; az <= 360; az += 2) minElevationPoints.push({ az, el: normalizedRotatorMinElevation });
+            drawPolyline(minElevationPoints, rotatorLimitColor, 1.5, [6, 4]);
+
+            const labelAzCandidates = [
+                normalizeDegrees(view.centerAz),
+                0,
+                90,
+                180,
+                270,
+            ];
+            const labelPoint = labelAzCandidates
+                .map((az) => projectSkyPoint({ az, el: normalizedRotatorMinElevation }, view, size))
+                .find((point) => (
+                    point
+                    && point.x >= 10
+                    && point.x <= size.width - 10
+                    && point.y >= 10
+                    && point.y <= size.height - 10
+                ));
+            if (labelPoint) {
+                drawText(ctx, `Min EL ${Math.round(normalizedRotatorMinElevation)}${String.fromCharCode(176)}`, labelPoint.x + 8, labelPoint.y - 8, {
+                    color: rotatorLimitColor,
+                    font: '700 11px sans-serif',
+                    align: 'left',
+                });
+            }
         }
 
         if (effectiveDisplayOptions.showStarField) {
@@ -896,6 +934,7 @@ function PlanetariumCanvas({
         skyObjects,
         starObjects,
         normalizedRotatorCrosshair,
+        normalizedRotatorMinElevation,
         theme,
         timestamp,
         view,
