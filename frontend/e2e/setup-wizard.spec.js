@@ -185,7 +185,7 @@ test.describe('Setup Wizard', () => {
   });
 
   test('finalize state reflects failed admin creation, then enables completion after retry', async ({ page }) => {
-    test.setTimeout(120000);
+    test.setTimeout(360000);
 
     const setupDialog = await openSetupWizard(page);
 
@@ -229,23 +229,50 @@ test.describe('Setup Wizard', () => {
     await expect(setupDialog).toContainText(/administrator account created/i);
     await expect(setupDialog).toContainText(/administrator account created[\s\S]*done/i);
     await expect(completeSetupButton).toBeEnabled({ timeout: 60000 });
-    // Complete setup button enablement is the UI condition this test validates.
-    // Authenticate via API to persist auth state for downstream projects without
-    // depending on dialog-close timing while background jobs are still active.
+    await completeSetupButton.click();
+
+    // Setup completion should establish the authenticated UI session.
+    const userMenuButton = page.getByRole('button', { name: new RegExp(`open user menu for ${wizardUsername}`, 'i') });
+    await expect(userMenuButton).toBeVisible({ timeout: 120000 });
+
+    // Verify explicit logout flow.
+    const logoutReply = await page.request.post('/api/auth/logout');
+    expect(logoutReply.status()).toBe(200);
 
     await expect.poll(async () => {
-      const loginReply = await page.request.post('/api/auth/login', {
-        data: {
-          username: wizardUsername,
-          password: wizardPassword,
-          keep_session_active: false,
-        },
-      });
-      return loginReply.status();
-    }, { timeout: 90000 }).toBe(200);
+      const statusReply = await page.request.get('/api/auth/status');
+      if (!statusReply.ok()) return null;
+      const statusPayload = await statusReply.json();
+      return Boolean(statusPayload?.authenticated);
+    }, {
+      timeout: 60000,
+      intervals: [1000, 2000, 5000, 10000],
+    }).toBe(false);
 
-    const meReply = await page.request.get('/api/auth/me');
-    await expect(meReply.ok()).toBeTruthy();
+    // Verify explicit login path with the admin created during setup.
+    const loginReply = await page.request.post('/api/auth/login', {
+      data: {
+        username: wizardUsername,
+        password: wizardPassword,
+        keep_session_active: false,
+      },
+    });
+    expect(loginReply.status()).toBe(200);
+
+    await expect.poll(async () => {
+      const statusReply = await page.request.get('/api/auth/status');
+      if (!statusReply.ok()) return null;
+      const statusPayload = await statusReply.json();
+      return Boolean(statusPayload?.authenticated);
+    }, {
+      timeout: 60000,
+      intervals: [1000, 2000, 5000, 10000],
+    }).toBe(true);
+
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByRole('button', { name: new RegExp(`open user menu for ${wizardUsername}`, 'i') }))
+      .toBeVisible({ timeout: 30000 });
 
     // Persist auth for dependent E2E projects in the same Playwright invocation.
     await fs.promises.mkdir(path.dirname(storageStatePath), { recursive: true });

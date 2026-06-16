@@ -17,7 +17,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import logging
 import re
 import secrets
 import time
@@ -28,7 +30,7 @@ from typing import Any, Dict, Optional
 
 from passlib.context import CryptContext
 from sqlalchemy import and_, delete, func, or_, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from db import AsyncSessionLocal
 from db.models import AuthSessions, Locations, UserRole, Users
@@ -42,10 +44,12 @@ _max_failed_logins = 5
 _lock_minutes = 10
 _setup_cache_ttl_seconds = 3.0
 _setup_cache: Dict[str, Any] = {"value": True, "expires_at": 0.0}
+_sqlite_lock_retry_delays_seconds = (0.25, 0.5, 1.0, 2.0)
 AUTH_SESSION_COOKIE_NAME = "gs_session"
 SETUP_MODE_NONE = "none"
 SETUP_MODE_FULL = "full_setup"
 SETUP_MODE_ADMIN_RECOVERY = "admin_recovery"
+logger = logging.getLogger(__name__)
 
 setup_allowed_commands = {
     "get-locations",
@@ -308,6 +312,34 @@ def _set_setup_cache(value: bool) -> None:
     _setup_cache["expires_at"] = time.monotonic() + _setup_cache_ttl_seconds
 
 
+def _is_sqlite_locked_error(exc: OperationalError) -> bool:
+    message = str(getattr(exc, "orig", exc) or "").strip().lower()
+    return "database is locked" in message or "database table is locked" in message
+
+
+async def _retry_after_sqlite_lock(
+    exc: OperationalError,
+    *,
+    operation_name: str,
+    attempt_index: int,
+) -> bool:
+    if not _is_sqlite_locked_error(exc):
+        return False
+    if attempt_index >= len(_sqlite_lock_retry_delays_seconds):
+        return False
+
+    delay_seconds = _sqlite_lock_retry_delays_seconds[attempt_index]
+    logger.warning(
+        "SQLite lock during %s, retrying in %.2fs (attempt %s/%s)",
+        operation_name,
+        delay_seconds,
+        attempt_index + 1,
+        len(_sqlite_lock_retry_delays_seconds) + 1,
+    )
+    await asyncio.sleep(delay_seconds)
+    return True
+
+
 def _resolve_session_ttl_days(keep_session_active: bool) -> int:
     return _session_ttl_keep_active_days if keep_session_active else _session_ttl_default_days
 
@@ -346,63 +378,79 @@ async def bootstrap_admin(
     normalized_username = _validate_username(username)
     validated_password = _validate_password(password)
     now = _utcnow()
+    max_attempts = len(_sqlite_lock_retry_delays_seconds) + 1
 
-    async with AsyncSessionLocal() as session:
-        try:
-            # BEGIN IMMEDIATE serializes bootstrap writes on SQLite so setup can only complete once.
-            await session.execute(text("BEGIN IMMEDIATE"))
-            count_result = await session.execute(select(func.count()).select_from(Users))
-            users_count = int(count_result.scalar_one() or 0)
-            if users_count > 0:
-                await session.rollback()
+    for attempt_index in range(max_attempts):
+        async with AsyncSessionLocal() as session:
+            try:
+                # BEGIN IMMEDIATE serializes bootstrap writes on SQLite so setup can only complete once.
+                await session.execute(text("BEGIN IMMEDIATE"))
+                count_result = await session.execute(select(func.count()).select_from(Users))
+                users_count = int(count_result.scalar_one() or 0)
+                if users_count > 0:
+                    await session.rollback()
+                    _set_setup_cache(False)
+                    return {"success": False, "error": "Setup already completed."}
+
+                user_row = Users(
+                    username=normalized_username,
+                    username_norm=normalized_username,
+                    password_hash=hash_password(validated_password),
+                    role=UserRole.ADMIN.value,
+                    is_active=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(user_row)
+                await session.flush()
+
+                # Claim legacy bootstrap-scoped user preferences for this first admin.
+                # This keeps pre-auth preference values after setup without runtime fallbacks.
+                from crud import preferences as preferencescrud
+
+                claim_reply = await preferencescrud.claim_bootstrap_preferences(
+                    session, user_row.id
+                )
+                if not claim_reply.get("success"):
+                    await session.rollback()
+                    return {
+                        "success": False,
+                        "error": str(
+                            claim_reply.get("error") or "Failed to claim bootstrap preferences."
+                        ),
+                    }
+
+                token, _ = await _create_session(
+                    session,
+                    user_row.id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                )
+
+                await session.commit()
                 _set_setup_cache(False)
-                return {"success": False, "error": "Setup already completed."}
-
-            user_row = Users(
-                username=normalized_username,
-                username_norm=normalized_username,
-                password_hash=hash_password(validated_password),
-                role=UserRole.ADMIN.value,
-                is_active=True,
-                created_at=now,
-                updated_at=now,
-            )
-            session.add(user_row)
-            await session.flush()
-
-            # Claim legacy bootstrap-scoped user preferences for this first admin.
-            # This keeps pre-auth preference values after setup without runtime fallbacks.
-            from crud import preferences as preferencescrud
-
-            claim_reply = await preferencescrud.claim_bootstrap_preferences(session, user_row.id)
-            if not claim_reply.get("success"):
+                return {"success": True, "token": token, "user": _serialize_user(user_row)}
+            except IntegrityError:
                 await session.rollback()
-                return {
-                    "success": False,
-                    "error": str(
-                        claim_reply.get("error") or "Failed to claim bootstrap preferences."
-                    ),
-                }
+                return {"success": False, "error": "Username already exists."}
+            except ValueError as exc:
+                await session.rollback()
+                return {"success": False, "error": str(exc)}
+            except OperationalError as exc:
+                await session.rollback()
+                should_retry = await _retry_after_sqlite_lock(
+                    exc,
+                    operation_name="bootstrap_admin",
+                    attempt_index=attempt_index,
+                )
+                if should_retry:
+                    continue
+                raise
+            except Exception:
+                await session.rollback()
+                raise
 
-            token, _ = await _create_session(
-                session,
-                user_row.id,
-                client_ip=client_ip,
-                user_agent=user_agent,
-            )
-
-            await session.commit()
-            _set_setup_cache(False)
-            return {"success": True, "token": token, "user": _serialize_user(user_row)}
-        except IntegrityError:
-            await session.rollback()
-            return {"success": False, "error": "Username already exists."}
-        except ValueError as exc:
-            await session.rollback()
-            return {"success": False, "error": str(exc)}
-        except Exception:
-            await session.rollback()
-            raise
+    raise RuntimeError("bootstrap_admin retry loop exhausted unexpectedly")
 
 
 async def login(
@@ -418,45 +466,60 @@ async def login(
     normalized_username = _normalize_username(username)
     if not normalized_username or not password:
         return {"success": False, "error": "Invalid username or password."}
+    max_attempts = len(_sqlite_lock_retry_delays_seconds) + 1
 
-    async with AsyncSessionLocal() as session:
-        stmt = select(Users).where(Users.username_norm == normalized_username).limit(1)
-        user_row = (await session.execute(stmt)).scalar_one_or_none()
-        now = _utcnow()
+    for attempt_index in range(max_attempts):
+        async with AsyncSessionLocal() as session:
+            try:
+                stmt = select(Users).where(Users.username_norm == normalized_username).limit(1)
+                user_row = (await session.execute(stmt)).scalar_one_or_none()
+                now = _utcnow()
 
-        if user_row is None:
-            return {"success": False, "error": "Invalid username or password."}
+                if user_row is None:
+                    return {"success": False, "error": "Invalid username or password."}
 
-        if not user_row.is_active:
-            return {"success": False, "error": "User is disabled."}
+                if not user_row.is_active:
+                    return {"success": False, "error": "User is disabled."}
 
-        if user_row.locked_until and user_row.locked_until > now:
-            return {"success": False, "error": "User account is temporarily locked."}
+                if user_row.locked_until and user_row.locked_until > now:
+                    return {"success": False, "error": "User account is temporarily locked."}
 
-        if not verify_password(password, user_row.password_hash):
-            user_row.failed_login_count = int(user_row.failed_login_count or 0) + 1
-            if user_row.failed_login_count >= _max_failed_logins:
+                if not verify_password(password, user_row.password_hash):
+                    user_row.failed_login_count = int(user_row.failed_login_count or 0) + 1
+                    if user_row.failed_login_count >= _max_failed_logins:
+                        user_row.failed_login_count = 0
+                        user_row.locked_until = now + timedelta(minutes=_lock_minutes)
+                    user_row.updated_at = now
+                    await session.commit()
+                    return {"success": False, "error": "Invalid username or password."}
+
                 user_row.failed_login_count = 0
-                user_row.locked_until = now + timedelta(minutes=_lock_minutes)
-            user_row.updated_at = now
-            await session.commit()
-            return {"success": False, "error": "Invalid username or password."}
+                user_row.locked_until = None
+                user_row.last_login_at = now
+                user_row.updated_at = now
 
-        user_row.failed_login_count = 0
-        user_row.locked_until = None
-        user_row.last_login_at = now
-        user_row.updated_at = now
+                token, _ = await _create_session(
+                    session,
+                    user_row.id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    # Keep-auth checkbox extends token TTL to one year; otherwise 15 days.
+                    session_ttl_days=_resolve_session_ttl_days(keep_session_active),
+                )
+                await session.commit()
+                return {"success": True, "token": token, "user": _serialize_user(user_row)}
+            except OperationalError as exc:
+                await session.rollback()
+                should_retry = await _retry_after_sqlite_lock(
+                    exc,
+                    operation_name="login",
+                    attempt_index=attempt_index,
+                )
+                if should_retry:
+                    continue
+                raise
 
-        token, _ = await _create_session(
-            session,
-            user_row.id,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            # Keep-auth checkbox extends token TTL to one year; otherwise 15 days.
-            session_ttl_days=_resolve_session_ttl_days(keep_session_active),
-        )
-        await session.commit()
-        return {"success": True, "token": token, "user": _serialize_user(user_row)}
+    raise RuntimeError("login retry loop exhausted unexpectedly")
 
 
 async def authenticate_token(
@@ -492,7 +555,13 @@ async def authenticate_token(
         if touch_last_seen:
             auth_session.last_seen_at = now
             auth_session.updated_at = now
-            await session.commit()
+            try:
+                await session.commit()
+            except OperationalError as exc:
+                await session.rollback()
+                if not _is_sqlite_locked_error(exc):
+                    raise
+                # Last-seen updates are best-effort and should not break valid auth checks.
 
         return {
             "session_id": str(auth_session.id),
@@ -509,17 +578,38 @@ async def logout(token: Optional[str], reason: str = "logout") -> None:
 
     token_hash = _hash_token(token)
     now = _utcnow()
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            update(AuthSessions)
-            .where(and_(AuthSessions.token_hash == token_hash, AuthSessions.revoked_at.is_(None)))
-            .values(
-                revoked_at=now,
-                revoke_reason=reason,
-                updated_at=now,
-            )
-        )
-        await session.commit()
+    max_attempts = len(_sqlite_lock_retry_delays_seconds) + 1
+
+    for attempt_index in range(max_attempts):
+        async with AsyncSessionLocal() as session:
+            try:
+                await session.execute(
+                    update(AuthSessions)
+                    .where(
+                        and_(
+                            AuthSessions.token_hash == token_hash, AuthSessions.revoked_at.is_(None)
+                        )
+                    )
+                    .values(
+                        revoked_at=now,
+                        revoke_reason=reason,
+                        updated_at=now,
+                    )
+                )
+                await session.commit()
+                return
+            except OperationalError as exc:
+                await session.rollback()
+                should_retry = await _retry_after_sqlite_lock(
+                    exc,
+                    operation_name="logout",
+                    attempt_index=attempt_index,
+                )
+                if should_retry:
+                    continue
+                raise
+
+    raise RuntimeError("logout retry loop exhausted unexpectedly")
 
 
 async def trim_inactive_auth_sessions(keep_last: int = 300) -> Dict[str, Any]:

@@ -2,13 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 import observations.events as obs_events
 from celestial.scene import refresh_celestial_vector_snapshots_cache
+from common import auth as authsvc
 from common.arguments import arguments
 from common.logger import logger
 from db import AsyncSessionLocal
@@ -21,6 +22,22 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # Global scheduler instance
 scheduler: Optional[AsyncIOScheduler] = None
+_ORBITAL_SYNC_TASK_PATTERNS = (
+    "orbital data sync",
+    "orbital_sync",
+    "orbital-sync",
+    "tle sync",
+    "tle_sync",
+)
+
+
+def _is_orbital_sync_task(task: Dict[str, Any]) -> bool:
+    """Identify orbital synchronization tasks from background task metadata."""
+    task_name = str(task.get("name") or "").strip().lower()
+    task_command = str(task.get("command") or "").strip().lower()
+    return any(
+        pattern in task_name or pattern in task_command for pattern in _ORBITAL_SYNC_TASK_PATTERNS
+    )
 
 
 async def sync_satellite_data_job(background_task_manager):
@@ -136,9 +153,27 @@ async def run_initial_observation_generation():
         logger.exception(e)
 
 
-async def sync_celestial_vector_snapshots_job():
+async def sync_celestial_vector_snapshots_job(background_task_manager):
     """Periodic cache-fill job that prefetches celestial vector snapshots from Horizons."""
     try:
+        # During first-time setup we avoid scheduled celestial writes so setup auth/bootstrap
+        # writes do not contend with cache refresh transactions on SQLite.
+        if await authsvc.is_setup_required(force_refresh=True):
+            logger.info(
+                "Skipping scheduled celestial vector snapshot sync: setup is still required."
+            )
+            return
+
+        # Orbital sync is a long-running writer. Skip this scheduled cache fill while
+        # orbital sync is active to avoid concurrent writer lock contention.
+        if background_task_manager:
+            running_tasks = background_task_manager.get_running_tasks()
+            if any(_is_orbital_sync_task(task) for task in running_tasks):
+                logger.info(
+                    "Skipping scheduled celestial vector snapshot sync: orbital sync is running."
+                )
+                return
+
         result = await refresh_celestial_vector_snapshots_cache(logger=logger)
         if result.get("success"):
             logger.info(
@@ -215,6 +250,7 @@ def start_scheduler(sio, process_manager, background_task_manager):
         scheduler.add_job(
             sync_celestial_vector_snapshots_job,
             trigger=IntervalTrigger(minutes=celestial_sync_interval_minutes),
+            args=[background_task_manager],
             id="sync_celestial_vector_snapshots",
             name="Synchronize celestial vector snapshots",
             replace_existing=True,
