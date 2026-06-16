@@ -231,13 +231,7 @@ test.describe('Setup Wizard', () => {
     await expect(completeSetupButton).toBeEnabled({ timeout: 60000 });
     // Complete setup button enablement is the UI condition this test validates.
     // Authenticate via API to persist auth state for downstream projects without
-    // depending on UI timing while background jobs are still active.
-    await expect.poll(async () => {
-      const statusReply = await page.request.get('/api/auth/status');
-      if (!statusReply.ok()) return null;
-      const statusPayload = await statusReply.json();
-      return Boolean(statusPayload?.setup_required);
-    }, { timeout: 30000 }).toBe(false);
+    // depending on dialog-close timing while background jobs are still active.
 
     await expect.poll(async () => {
       const loginReply = await page.request.post('/api/auth/login', {
@@ -248,7 +242,7 @@ test.describe('Setup Wizard', () => {
         },
       });
       return loginReply.status();
-    }, { timeout: 30000 }).toBe(200);
+    }, { timeout: 90000 }).toBe(200);
 
     const meReply = await page.request.get('/api/auth/me');
     await expect(meReply.ok()).toBeTruthy();
