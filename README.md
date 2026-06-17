@@ -12,6 +12,13 @@ This project was built with the help of Claude Code and Codex.
 
 <div align="center">
 
+### Login Screen
+<img src="frontend/public/ground station - login screen.png" alt="Ground Station login screen" width="450"/>
+
+*Login screen for user authentication before accessing the Ground Station interface*
+
+---
+
 ### Global Satellite Overview
 <img src="frontend/public/ground station - overview page - amateur group.png" alt="Overview page with amateur satellite group" width="450"/>
 
@@ -101,6 +108,7 @@ This project was built with the help of Claude Code and Codex.
 *   **SatDump Post-Processing:** Optional SatDump processing for IQ recordings, including METEOR LRPT/HRPT pipelines.
 *   **Performance Monitoring:** Live pipeline metrics (queue utilization, throughput, drops, and component health) streamed to the frontend.
 *   **Responsive Web Interface:** Material-UI + Socket.IO frontend for desktop, tablet, and mobile operation.
+*   **Authentication + User Management:** Built-in login screen with role-based access control for two user types: admins and operators.
 *   **Celestial Tracking Integration:** Solar-system/celestial vector support backed by the NASA/JPL Horizons API for non-TLE body tracking paths.
 
 ## Scheduled Observations & Automated Pass Recording
