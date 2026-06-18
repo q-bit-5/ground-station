@@ -96,6 +96,62 @@ async def test_api_call_reauthenticates_each_request(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_connect_persists_authenticated_owner_metadata(monkeypatch):
+    sio = _FakeSio()
+    sockethandlers.register_socketio_handlers(sio)
+    connect = sio.handlers["connect"]
+
+    async def _is_setup_required(force_refresh: bool = False):
+        del force_refresh
+        return False
+
+    async def _authenticate_token(token: str | None):
+        assert token == "token-owner"
+        return {
+            "session_id": "auth-session-1",
+            "user_id": "user-123",
+            "username": "owner",
+            "role": "admin",
+            "is_active": True,
+        }
+
+    captured_metadata: Dict[str, Any] = {}
+
+    def _set_session_metadata(sid: str, **kwargs):
+        captured_metadata["sid"] = sid
+        captured_metadata["kwargs"] = kwargs
+
+    monkeypatch.setattr(sockethandlers.authsvc, "is_setup_required", _is_setup_required)
+    monkeypatch.setattr(sockethandlers.authsvc, "authenticate_token", _authenticate_token)
+    monkeypatch.setattr(
+        sockethandlers.session_tracker, "set_session_metadata", _set_session_metadata
+    )
+
+    connect_reply = await connect(
+        "sid-owner",
+        {
+            "REMOTE_ADDR": "10.0.0.2",
+            "HTTP_USER_AGENT": "UA/Test",
+            "HTTP_ORIGIN": "https://app.local",
+            "HTTP_REFERER": "https://app.local/admin/system/maintenance",
+        },
+        {"token": "token-owner"},
+    )
+    assert connect_reply is not False
+
+    assert captured_metadata["sid"] == "sid-owner"
+    metadata_kwargs = captured_metadata["kwargs"]
+    assert metadata_kwargs["ip_address"] == "10.0.0.2"
+    assert metadata_kwargs["user_agent"] == "UA/Test"
+    assert metadata_kwargs["origin"] == "https://app.local"
+    assert metadata_kwargs["referer"] == "https://app.local/admin/system/maintenance"
+    assert isinstance(metadata_kwargs["connected_at"], float)
+    assert metadata_kwargs["user_id"] == "user-123"
+    assert metadata_kwargs["username"] == "owner"
+    assert metadata_kwargs["role"] == "admin"
+
+
+@pytest.mark.asyncio
 async def test_api_call_disconnects_when_session_is_revoked(monkeypatch):
     sio = _FakeSio()
     sockethandlers.register_socketio_handlers(sio)

@@ -116,6 +116,11 @@ def register_socketio_handlers(sio):
 
         SESSIONS[sid] = environ
 
+        # Keep session-owner identity in tracker metadata so runtime snapshots can expose it.
+        auth_user_id = str((auth_context or {}).get("user_id") or "").strip() or None
+        auth_username = str((auth_context or {}).get("username") or "").strip() or None
+        auth_role = str((auth_context or {}).get("role") or "").strip() or None
+
         # Persist client metadata into SessionTracker so snapshots can include it.
         try:
             session_tracker.set_session_metadata(
@@ -125,6 +130,9 @@ def register_socketio_handlers(sio):
                 origin=origin,
                 referer=referer,
                 connected_at=time.time(),
+                user_id=auth_user_id,
+                username=auth_username,
+                role=auth_role,
             )
         except Exception:
             logger.debug("Failed to set session metadata in tracker", exc_info=True)
@@ -193,6 +201,18 @@ def register_socketio_handlers(sio):
                         "Failed to disconnect sid=%s after auth invalidation", sid, exc_info=True
                     )
             return {"success": False, "data": None, "error": "Authentication required."}
+
+        # Re-authentication can update role/identity; mirror those in session metadata.
+        if auth_context:
+            try:
+                session_tracker.set_session_metadata(
+                    sid,
+                    user_id=str(auth_context.get("user_id") or "").strip() or None,
+                    username=str(auth_context.get("username") or "").strip() or None,
+                    role=str(auth_context.get("role") or "").strip() or None,
+                )
+            except Exception:
+                logger.debug("Failed to refresh session owner metadata", exc_info=True)
 
         reply = await dispatch_request(
             sio,
