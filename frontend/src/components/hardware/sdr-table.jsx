@@ -1369,7 +1369,6 @@ export default function SDRsPage() {
                                     setDiscovering(true);
                                     try {
                                         await dispatch(startSoapySDRDiscovery({ socket })).unwrap();
-                                        toast.success(t('sdr.discovery_started', 'SoapySDR discovery started'));
                                     } catch (error) {
                                         console.error('Failed to start SoapySDR discovery:', error);
                                         toast.error(t('sdr.discovery_failed', 'Failed to start SoapySDR discovery'));
