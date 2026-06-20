@@ -25,6 +25,13 @@ live radio signals from satellites.
 
 ---
 
+### Solar System View
+<img src="frontend/public/ground station - solar system view.png" alt="Solar System view page" width="450"/>
+
+*Solar System page for celestial-body tracking with live orbital context and interactive visualization*
+
+---
+
 ### Multi-Target Tracking Console
 <img src="frontend/public/ground station - tracking console - multitargets - iss.png" alt="Multi-target tracking console focused on ISS" width="450"/>
 
