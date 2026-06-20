@@ -47,12 +47,10 @@ export default function App() {
     const dashboardRuntimeState = useSelector((state) => state.dashboard);
     const authUserRole = String(authState?.user?.role || '').toLowerCase();
     const isAdmin = authUserRole === 'admin';
-    const celestialEnabledPreference = preferences.find((pref) => pref.name === 'celestial_enabled');
-    const showCelestial = String(celestialEnabledPreference?.value ?? 'false').toLowerCase() === 'true';
     const [systemTheme, setSystemTheme] = React.useState('dark');
     const navigation = React.useMemo(
-        () => getNavigation({ showCelestial, isAdmin }),
-        [showCelestial, isAdmin, i18n.language],
+        () => getNavigation({ isAdmin }),
+        [isAdmin, i18n.language],
     );
 
     // Get theme preference and create theme
@@ -120,7 +118,7 @@ export default function App() {
                 i18n.changeLanguage(languageCode);
             }
         }
-    }, [preferences, i18n, showCelestial]);
+    }, [preferences, i18n]);
 
     const appRuntimeEnabled = !authState.setupRequired && authState.authenticated;
     const dashboardRuntimeReady =
@@ -191,7 +189,7 @@ export default function App() {
         <AudioProvider>
             <WaterfallEngineProvider>
                 <ReactRouterAppProvider
-                    key={`app-provider-${i18n.language}-${showCelestial ? 'celestial-on' : 'celestial-off'}`}
+                    key={`app-provider-${i18n.language}`}
                     navigation={navigation}
                     theme={dashboardTheme}
                     branding={BRANDING}

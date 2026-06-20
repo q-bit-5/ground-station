@@ -246,19 +246,17 @@ const SchedulerIconWithStatus = () => {
     );
 };
 
-export const getNavigation = ({ showCelestial = false, isAdmin = false } = {}) => {
+export const getNavigation = ({ isAdmin = false } = {}) => {
     const operationsSection = [
         {
             kind: 'header',
             title: i18n.t('operations', { ns: 'navigation', defaultValue: 'Operations' }),
         },
-        ...(showCelestial
-            ? [{
-                segment: 'solarsystem',
-                title: i18n.t('solar_system', { ns: 'navigation', defaultValue: 'Solar System' }),
-                icon: <CelestialSolarIcon />,
-            }]
-            : []),
+        {
+            segment: 'solarsystem',
+            title: i18n.t('solar_system', { ns: 'navigation', defaultValue: 'Solar System' }),
+            icon: <CelestialSolarIcon />,
+        },
         {
             segment: 'earthview',
             title: i18n.t('earthview', { ns: 'navigation', defaultValue: 'Earth view' }),
