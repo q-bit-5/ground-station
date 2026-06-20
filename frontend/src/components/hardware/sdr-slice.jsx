@@ -193,9 +193,10 @@ const defaultSDR = {
     name: '',
     host: '127.0.0.1',
     port: 1234,
-    type: 'rtlsdrusbv4',
+    type: '',
     serial: '',
     driver: '',
+    antenna_labels: {},
     frequency_min: 24,
     frequency_max: 1800,
 };

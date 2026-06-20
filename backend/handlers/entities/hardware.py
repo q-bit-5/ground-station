@@ -37,6 +37,101 @@ logger = logging.getLogger("hardware-handler")
 sdr_parameters_cache: Dict[str, Dict] = {}
 
 
+def _decode_subprocess_output(raw: Optional[bytes]) -> str:
+    if not raw:
+        return ""
+    return raw.decode(errors="replace").strip()
+
+
+def _truncate_log_payload(value: str, limit: int = 4000) -> str:
+    if len(value) <= limit:
+        return value
+    return f"{value[:limit]}... [truncated {len(value) - limit} chars]"
+
+
+def _emit_probe_logs(probe_name: str, logs: Any) -> None:
+    if not isinstance(logs, list):
+        return
+
+    for entry in logs:
+        line = str(entry).strip()
+        if not line:
+            continue
+
+        upper_line = line.upper()
+        if upper_line.startswith(("ERROR:", "EXCEPTION:")):
+            logger.error("%s | %s", probe_name, line)
+        elif upper_line.startswith(("WARNING:", "WARN:")):
+            logger.warning("%s | %s", probe_name, line)
+        else:
+            logger.info("%s | %s", probe_name, line)
+
+
+def _log_probe_stderr(probe_name: str, stderr_text: str) -> None:
+    if not stderr_text:
+        return
+    for line in stderr_text.splitlines():
+        if line.strip():
+            logger.warning("%s stderr | %s", probe_name, line)
+
+
+def _log_probe_antenna_summary(probe_name: str, devices: Any) -> None:
+    if not isinstance(devices, list):
+        logger.warning("%s returned non-list data payload: %s", probe_name, type(devices))
+        return
+
+    logger.info("%s summary | devices=%d", probe_name, len(devices))
+    for idx, device in enumerate(devices):
+        if not isinstance(device, dict):
+            logger.info("%s summary | [%d] non-dict entry: %s", probe_name, idx, type(device))
+            continue
+        antennas = device.get("antennas") or {}
+        rx = antennas.get("rx") if isinstance(antennas, dict) else []
+        tx = antennas.get("tx") if isinstance(antennas, dict) else []
+        label = device.get("label") or device.get("name") or f"device-{idx}"
+        driver = device.get("driver", "")
+        serial = device.get("serial", "")
+        logger.info(
+            "%s summary | [%d] label=%s driver=%s serial=%s rx_ports=%d tx_ports=%d",
+            probe_name,
+            idx,
+            label,
+            driver,
+            serial,
+            len(rx) if isinstance(rx, list) else 0,
+            len(tx) if isinstance(tx, list) else 0,
+        )
+
+
+def _compact_soapy_device_rows(sdrs: Any, max_items: int = 12) -> str:
+    if not isinstance(sdrs, list):
+        return "-"
+
+    rows = []
+    for idx, sdr in enumerate(sdrs, start=1):
+        if not isinstance(sdr, dict):
+            rows.append(f"#{idx}=invalid")
+            continue
+        raw_antennas = sdr.get("antennas")
+        if isinstance(raw_antennas, dict):
+            rx_ports = raw_antennas.get("rx", [])
+            tx_ports = raw_antennas.get("tx", [])
+        else:
+            rx_ports = []
+            tx_ports = []
+        rx_count = len(rx_ports) if isinstance(rx_ports, list) else 0
+        tx_count = len(tx_ports) if isinstance(tx_ports, list) else 0
+        label = str(sdr.get("label", sdr.get("driver", f"SDR #{idx}")) or f"SDR #{idx}").strip()
+        serial = str(sdr.get("serial", "") or "").strip()
+        serial_short = serial[-6:] if serial else "-"
+        rows.append(f"{label}[{serial_short}]={rx_count}/{tx_count}")
+
+    if len(rows) > max_items:
+        extra = len(rows) - max_items
+        rows = rows[:max_items] + [f"...(+{extra})"]
+    return ", ".join(rows) if rows else "-"
+
+
 def _nearest_rate(sorted_rates: list[float], target: float) -> float:
     if not sorted_rates:
         return target
@@ -104,6 +199,7 @@ async def get_local_soapy_sdr_devices():
 
     try:
         logger.info("Probing local SoapySDR devices...")
+        probe_name = "local-soapy-probe"
         probe_process = await asyncio.create_subprocess_exec(
             sys.executable,
             "-c",
@@ -115,15 +211,39 @@ async def get_local_soapy_sdr_devices():
 
         try:
             stdout, stderr = await asyncio.wait_for(probe_process.communicate(), timeout=35)
-            result = json.loads(stdout.decode().strip())
+            stdout_text = _decode_subprocess_output(stdout)
+            stderr_text = _decode_subprocess_output(stderr)
 
-            if result["success"]:
-                result = result["data"]
+            if probe_process.returncode not in (0, None):
+                logger.error(
+                    "%s exited with return code %s",
+                    probe_name,
+                    probe_process.returncode,
+                )
+            _log_probe_stderr(probe_name, stderr_text)
+
+            if not stdout_text:
+                raise Exception("SoapySDR probe returned empty output")
+
+            try:
+                result = json.loads(stdout_text)
+            except json.JSONDecodeError as exc:
+                logger.error("%s produced invalid JSON: %s", probe_name, str(exc))
+                logger.error("%s stdout | %s", probe_name, _truncate_log_payload(stdout_text))
+                raise
+
+            _emit_probe_logs(probe_name, result.get("log"))
+
+            if result.get("success"):
+                result = result.get("data", [])
             else:
-                raise Exception("Error enumerating local SoapySDR devices")
+                probe_error = result.get("error") or "Error enumerating local SoapySDR devices"
+                raise Exception(probe_error)
 
             reply["success"] = True
             reply["data"] = result
+            logger.info("Detected %d local SoapySDR device(s)", len(result))
+            _log_probe_antenna_summary(probe_name, result)
 
         except asyncio.TimeoutError:
             probe_process.kill()
@@ -152,6 +272,7 @@ async def get_local_rtl_sdr_devices():
 
     try:
         logger.info("Probing local RTL-SDR devices...")
+        probe_name = "local-rtl-probe"
         probe_process = await asyncio.create_subprocess_exec(
             sys.executable,
             "-c",
@@ -163,16 +284,39 @@ async def get_local_rtl_sdr_devices():
 
         try:
             stdout, stderr = await asyncio.wait_for(probe_process.communicate(), timeout=35)
-            result = json.loads(stdout.decode().strip())
+            stdout_text = _decode_subprocess_output(stdout)
+            stderr_text = _decode_subprocess_output(stderr)
 
-            if result["success"]:
-                result = result["data"]
+            if probe_process.returncode not in (0, None):
+                logger.error(
+                    "%s exited with return code %s",
+                    probe_name,
+                    probe_process.returncode,
+                )
+            _log_probe_stderr(probe_name, stderr_text)
+
+            if not stdout_text:
+                raise Exception("RTL-SDR probe returned empty output")
+
+            try:
+                result = json.loads(stdout_text)
+            except json.JSONDecodeError as exc:
+                logger.error("%s produced invalid JSON: %s", probe_name, str(exc))
+                logger.error("%s stdout | %s", probe_name, _truncate_log_payload(stdout_text))
+                raise
+
+            _emit_probe_logs(probe_name, result.get("log"))
+
+            if result.get("success"):
+                result = result.get("data", [])
             else:
-                raise Exception("Error enumerating local RTL-SDR devices")
+                probe_error = result.get("error") or "Error enumerating local RTL-SDR devices"
+                raise Exception(probe_error)
 
             reply["success"] = True
             reply["data"] = result
             logger.info("Detected %d RTL-SDR device(s)", len(result))
+            _log_probe_antenna_summary(probe_name, result)
 
         except asyncio.TimeoutError:
             probe_process.kill()
@@ -887,7 +1031,39 @@ async def get_soapy_servers(
     sio: Any, data: Optional[Dict], logger: Any, sid: str
 ) -> Dict[str, Union[bool, list]]:
     """Get discovered SoapySDR servers."""
-    logger.debug("Getting discovered SoapySDR servers")
+    logger.info("Getting discovered SoapySDR servers | servers=%d", len(discovered_servers))
+    for server_name, server_info in discovered_servers.items():
+        sdrs = server_info.get("sdrs", []) if isinstance(server_info, dict) else []
+        sdr_count = len(sdrs) if isinstance(sdrs, list) else 0
+        rx_ready = 0
+        tx_ready = 0
+        if isinstance(sdrs, list):
+            for sdr in sdrs:
+                if not isinstance(sdr, dict):
+                    continue
+                raw_antennas = sdr.get("antennas")
+                if isinstance(raw_antennas, dict):
+                    rx_ports = raw_antennas.get("rx", [])
+                    tx_ports = raw_antennas.get("tx", [])
+                else:
+                    rx_ports = []
+                    tx_ports = []
+                if isinstance(rx_ports, list) and rx_ports:
+                    rx_ready += 1
+                if isinstance(tx_ports, list) and tx_ports:
+                    tx_ready += 1
+
+        logger.info(
+            "Soapy server payload summary | name=%s ip=%s port=%s status=%s sdrs=%d rx_ready=%d tx_ready=%d rows=%s",
+            server_name,
+            server_info.get("ip") if isinstance(server_info, dict) else "",
+            server_info.get("port") if isinstance(server_info, dict) else "",
+            server_info.get("status") if isinstance(server_info, dict) else "",
+            sdr_count,
+            rx_ready,
+            tx_ready,
+            _compact_soapy_device_rows(sdrs),
+        )
     return {"success": True, "data": discovered_servers}
 
 

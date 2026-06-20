@@ -78,7 +78,9 @@ const tasksSlice = createSlice({
                 end_time: null,
                 return_code: null,
             };
-            state.runningTaskIds.push(task_id);
+            if (!state.runningTaskIds.includes(task_id)) {
+                state.runningTaskIds.push(task_id);
+            }
             // Remove from completed if it was there
             state.completedTaskIds = state.completedTaskIds.filter(id => id !== task_id);
         },
@@ -104,50 +106,107 @@ const tasksSlice = createSlice({
 
         taskCompleted: (state, action) => {
             const { task_id, status, return_code, duration } = action.payload;
-            if (state.tasks[task_id]) {
+            if (!state.tasks[task_id]) {
+                state.tasks[task_id] = {
+                    task_id,
+                    name: action.payload?.name || task_id,
+                    command: '',
+                    args: [],
+                    pid: null,
+                    start_time: Date.now() / 1000,
+                    status: 'completed',
+                    output_lines: [],
+                    progress: 100,
+                    end_time: Date.now(),
+                    return_code,
+                    duration,
+                };
+            } else {
                 state.tasks[task_id].status = status;
                 state.tasks[task_id].return_code = return_code;
                 state.tasks[task_id].end_time = Date.now();
                 state.tasks[task_id].duration = duration;
+            }
 
-                // Move from running to completed
-                state.runningTaskIds = state.runningTaskIds.filter(id => id !== task_id);
-                if (!state.completedTaskIds.includes(task_id)) {
-                    state.completedTaskIds.unshift(task_id);
-                    // Keep only last 20 completed tasks
-                    if (state.completedTaskIds.length > 20) {
-                        const removed = state.completedTaskIds.pop();
-                        delete state.tasks[removed];
-                    }
+            // Move from running to completed, even if task entry arrived out-of-order.
+            state.runningTaskIds = state.runningTaskIds.filter(id => id !== task_id);
+            if (!state.completedTaskIds.includes(task_id)) {
+                state.completedTaskIds.unshift(task_id);
+                // Keep only last 20 completed tasks
+                if (state.completedTaskIds.length > 20) {
+                    const removed = state.completedTaskIds.pop();
+                    delete state.tasks[removed];
                 }
             }
         },
 
         taskStopped: (state, action) => {
             const { task_id, duration } = action.payload;
-            if (state.tasks[task_id]) {
+            if (!state.tasks[task_id]) {
+                state.tasks[task_id] = {
+                    task_id,
+                    name: action.payload?.name || task_id,
+                    command: '',
+                    args: [],
+                    pid: null,
+                    start_time: Date.now() / 1000,
+                    status: 'stopped',
+                    output_lines: [],
+                    progress: 100,
+                    end_time: Date.now(),
+                    return_code: null,
+                    duration,
+                };
+            } else {
                 state.tasks[task_id].status = 'stopped';
                 state.tasks[task_id].end_time = Date.now();
                 state.tasks[task_id].duration = duration;
+            }
 
-                // Move from running to completed
-                state.runningTaskIds = state.runningTaskIds.filter(id => id !== task_id);
-                if (!state.completedTaskIds.includes(task_id)) {
-                    state.completedTaskIds.unshift(task_id);
-                    // Keep only last 20 completed tasks
-                    if (state.completedTaskIds.length > 20) {
-                        const removed = state.completedTaskIds.pop();
-                        delete state.tasks[removed];
-                    }
+            // Move from running to completed, even if task entry arrived out-of-order.
+            state.runningTaskIds = state.runningTaskIds.filter(id => id !== task_id);
+            if (!state.completedTaskIds.includes(task_id)) {
+                state.completedTaskIds.unshift(task_id);
+                // Keep only last 20 completed tasks
+                if (state.completedTaskIds.length > 20) {
+                    const removed = state.completedTaskIds.pop();
+                    delete state.tasks[removed];
                 }
             }
         },
 
         taskError: (state, action) => {
             const { task_id, error } = action.payload;
-            if (state.tasks[task_id]) {
+            if (!state.tasks[task_id]) {
+                state.tasks[task_id] = {
+                    task_id,
+                    name: action.payload?.name || task_id,
+                    command: '',
+                    args: [],
+                    pid: null,
+                    start_time: Date.now() / 1000,
+                    status: 'failed',
+                    output_lines: [],
+                    progress: 100,
+                    end_time: Date.now(),
+                    return_code: null,
+                    duration: null,
+                    error,
+                };
+            } else {
                 state.tasks[task_id].error = error;
                 state.tasks[task_id].status = 'failed';
+                state.tasks[task_id].end_time = state.tasks[task_id].end_time || Date.now();
+                state.tasks[task_id].progress = state.tasks[task_id].progress ?? 100;
+            }
+
+            state.runningTaskIds = state.runningTaskIds.filter(id => id !== task_id);
+            if (!state.completedTaskIds.includes(task_id)) {
+                state.completedTaskIds.unshift(task_id);
+                if (state.completedTaskIds.length > 20) {
+                    const removed = state.completedTaskIds.pop();
+                    delete state.tasks[removed];
+                }
             }
         },
 

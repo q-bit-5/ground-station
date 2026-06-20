@@ -26,6 +26,7 @@ from db.models import Cameras, Rigs, Rotators, SDRs
 
 VALID_AZIMUTH_MODES = {"0_360", "-180_180"}
 SUPPORTED_CAMERA_TYPES = {"hls", "mjpeg"}
+MAX_ANTENNA_LABEL_LENGTH = 64
 
 
 def _normalize_optional_float(value):
@@ -42,6 +43,39 @@ def _normalize_camera_type(value: object) -> str:
     if normalized not in SUPPORTED_CAMERA_TYPES:
         supported = ", ".join(sorted(SUPPORTED_CAMERA_TYPES))
         raise ValueError(f"camera type must be one of: {supported}")
+    return normalized
+
+
+def _normalize_antenna_labels(value: object) -> dict:
+    """
+    Normalize persisted user antenna labels.
+
+    Stored shape:
+      {
+        "rx": {"<internal_port_name>": "<user_label>"},
+        "tx": {"<internal_port_name>": "<user_label>"}
+      }
+    """
+    if not isinstance(value, dict):
+        return {}
+
+    normalized: dict = {}
+    for direction in ("rx", "tx"):
+        direction_labels = value.get(direction)
+        if not isinstance(direction_labels, dict):
+            continue
+
+        cleaned_labels = {}
+        for internal_name, user_label in direction_labels.items():
+            port_name = str(internal_name).strip()
+            label = str(user_label).strip()
+            if not port_name or not label:
+                continue
+            cleaned_labels[port_name] = label[:MAX_ANTENNA_LABEL_LENGTH]
+
+        if cleaned_labels:
+            normalized[direction] = cleaned_labels
+
     return normalized
 
 
@@ -616,6 +650,8 @@ async def add_sdr(session: AsyncSession, data: dict) -> dict:
     :rtype: dict
     """
     try:
+        data = dict(data)
+
         # Name is always required
         if "name" not in data or data["name"] is None:
             raise AssertionError("Field 'name' is required")
@@ -632,6 +668,8 @@ async def add_sdr(session: AsyncSession, data: dict) -> dict:
                     raise AssertionError("Field 'host' is required for TCP type SDRs")
                 if "port" not in data or data["port"] is None:
                     raise AssertionError("Field 'port' is required for TCP type SDRs")
+
+        data["antenna_labels"] = _normalize_antenna_labels(data.get("antenna_labels"))
 
         new_sdr = SDRs(**{key: value for key, value in data.items() if hasattr(SDRs, key)})
 
@@ -668,6 +706,8 @@ async def edit_sdr(session: AsyncSession, data: dict) -> dict:
     :rtype: dict
     """
     try:
+        data = dict(data)
+
         # Get sdr_id from data and convert to UUID if necessary
         sdr_id = data.pop("id")
         if isinstance(sdr_id, str):
@@ -675,6 +715,8 @@ async def edit_sdr(session: AsyncSession, data: dict) -> dict:
 
         data.pop("updated", None)
         data.pop("added", None)
+        if "antenna_labels" in data:
+            data["antenna_labels"] = _normalize_antenna_labels(data.get("antenna_labels"))
 
         # Get the existing SDR
         stmt = select(SDRs).filter(SDRs.id == sdr_id)

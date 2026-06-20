@@ -104,7 +104,6 @@ import {
     taskStopped,
     taskError,
     reconcileTaskSnapshot,
-    setTaskList,
 } from '../components/tasks/tasks-slice.jsx';
 import {
     setCelestialSceneLive,
@@ -128,6 +127,23 @@ export const useSocketEventHandlers = (socket, enabled = true) => {
     useEffect(() => {
         if (!socket || !enabled) return;
         let lastBootstrappedSocketId = null;
+        const syncBackgroundTaskSnapshot = async () => {
+            try {
+                const taskListReply = await socket.emitWithAck("api.call", {
+                    cmd: "background-task.list",
+                    data: {
+                        only_running: false,
+                    },
+                });
+                if (taskListReply?.success) {
+                    dispatch(reconcileTaskSnapshot({ tasks: taskListReply.tasks || [] }));
+                } else {
+                    console.warn('Failed to fetch background task snapshot:', taskListReply?.error);
+                }
+            } catch (error) {
+                console.warn('Error fetching background task snapshot:', error);
+            }
+        };
 
         const handleConnect = async () => {
             // Avoid duplicate bootstrap for the same socket session when listeners
@@ -173,21 +189,7 @@ export const useSocketEventHandlers = (socket, enabled = true) => {
 
             // Reconcile task state after reconnect so missed completion events
             // (during setup/login socket turnover) cannot leave stale running tasks.
-            try {
-                const taskListReply = await socket.emitWithAck("api.call", {
-                    cmd: "background-task.list",
-                    data: {
-                        only_running: false,
-                    },
-                });
-                if (taskListReply?.success) {
-                    dispatch(reconcileTaskSnapshot({ tasks: taskListReply.tasks || [] }));
-                } else {
-                    console.warn('Failed to fetch background task snapshot:', taskListReply?.error);
-                }
-            } catch (error) {
-                console.warn('Error fetching background task snapshot:', error);
-            }
+            await syncBackgroundTaskSnapshot();
 
             // toast.success(
             //     <ToastMessage
@@ -842,7 +844,7 @@ export const useSocketEventHandlers = (socket, enabled = true) => {
         });
 
         socket.on('background_task:list', (data) => {
-            dispatch(setTaskList(data));
+            dispatch(reconcileTaskSnapshot(data));
         });
 
         socket.on('celestial-scene-update', (data) => {
@@ -878,6 +880,7 @@ export const useSocketEventHandlers = (socket, enabled = true) => {
             console.log('SoapySDR discovery completed:', data);
             // Refresh the server list in Redux store
             dispatch(fetchSoapySDRServers({ socket }));
+            void syncBackgroundTaskSnapshot();
 
             const sdrCount = data.sdr_count ?? data.active_count ?? 0;
 
@@ -898,10 +901,12 @@ export const useSocketEventHandlers = (socket, enabled = true) => {
             console.log('SoapySDR refresh completed:', data);
             // Refresh the server list in Redux store
             dispatch(fetchSoapySDRServers({ socket }));
+            void syncBackgroundTaskSnapshot();
         });
 
         socket.on('soapysdr:discovery_error', (data) => {
             console.error('SoapySDR discovery error:', data);
+            void syncBackgroundTaskSnapshot();
             toast.error(
                 <ToastMessage
                     title="SoapySDR Discovery Error"
