@@ -62,6 +62,26 @@ const SdrAccordion = ({
                           startStreamValidationErrors,
 }) => {
     const { t } = useTranslation('waterfall');
+    const selectedSdrRecord = React.useMemo(
+        () => sdrs.find((sdr) => String(sdr?.id) === String(selectedSDRId)),
+        [sdrs, selectedSDRId]
+    );
+    const selectedSdrRxAntennaLabels = React.useMemo(() => {
+        const rawLabels = selectedSdrRecord?.antenna_labels;
+        const rxLabels =
+            rawLabels && typeof rawLabels === 'object' && rawLabels.rx && typeof rawLabels.rx === 'object'
+                ? rawLabels.rx
+                : {};
+
+        const normalized = {};
+        Object.entries(rxLabels).forEach(([internalName, userLabel]) => {
+            const key = String(internalName || '').trim();
+            const value = String(userLabel || '').trim();
+            if (!key || !value) return;
+            normalized[key] = value;
+        });
+        return normalized;
+    }, [selectedSdrRecord]);
     const selectedCapabilities = sdrCapabilities?.[selectedSDRId] || null;
     const biasTSupported = hasBiasT || selectedCapabilities?.bias_t?.supported;
     const isNoneSourceOption = (source) =>
@@ -156,6 +176,13 @@ const SdrAccordion = ({
     const gainRequiredError = Boolean(startStreamValidationErrors?.gain);
     const sampleRateRequiredError = Boolean(startStreamValidationErrors?.sampleRate);
     const antennaRequiredError = Boolean(startStreamValidationErrors?.antenna);
+    const formatAntennaOptionLabel = (internalName) => {
+        const userLabel = selectedSdrRxAntennaLabels?.[internalName];
+        if (!userLabel) return internalName;
+        if (userLabel === internalName) return internalName;
+        // Show both user-facing label and stable hardware port key.
+        return `${userLabel} (${internalName})`;
+    };
 
     return (
         <Accordion expanded={expanded} onChange={onAccordionChange}>
@@ -376,7 +403,7 @@ const SdrAccordion = ({
                                 </MenuItem>
                                 {antennasList.rx && antennasList.rx.map(antenna => (
                                     <MenuItem key={antenna} value={antenna}>
-                                        {antenna}
+                                        {formatAntennaOptionLabel(antenna)}
                                     </MenuItem>
                                 ))}
                             </Select>
