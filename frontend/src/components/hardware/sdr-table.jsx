@@ -349,16 +349,6 @@ export default function SDRsPage() {
         const text = String(lastLine?.output || '').replace(/\s+/g, ' ').trim();
         return text;
     }, [activeSoapyDiscoveryTask]);
-    const discoveryTaskCommandPreview = useMemo(() => {
-        if (!activeSoapyDiscoveryTask) return '';
-        const commandLine = [
-            activeSoapyDiscoveryTask.command,
-            ...(Array.isArray(activeSoapyDiscoveryTask.args) ? activeSoapyDiscoveryTask.args : []),
-        ]
-            .filter(Boolean)
-            .join(' ');
-        return commandLine.length > 72 ? `${commandLine.slice(0, 72)}...` : commandLine;
-    }, [activeSoapyDiscoveryTask]);
 
     useEffect(() => {
         if (!runningSoapyDiscoveryTask) return undefined;
@@ -1380,7 +1370,7 @@ export default function SDRsPage() {
                     p: { xs: 1.75, md: 2 },
                     borderRadius: 2,
                     borderColor: 'divider',
-                    backgroundColor: 'background.paper',
+                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
                 }}
             >
                 <Stack
@@ -1439,10 +1429,7 @@ export default function SDRsPage() {
                             p: 1.25,
                             borderRadius: 1.25,
                             border: (theme) => `1px solid ${theme.palette.divider}`,
-                            backgroundColor: (theme) =>
-                                theme.palette.mode === 'dark'
-                                    ? alpha(theme.palette.common.white, 0.02)
-                                    : alpha(theme.palette.common.black, 0.02),
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
                         }}
                     >
                     <Box
@@ -1509,22 +1496,6 @@ export default function SDRsPage() {
                                     <LinearProgress sx={{ height: 6, borderRadius: 999, mb: 1 }} />
                                 )
                             ) : null}
-                            {discoveryTaskCommandPreview ? (
-                                <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{
-                                        display: 'block',
-                                        fontFamily: 'monospace',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                    title={discoveryTaskCommandPreview}
-                                >
-                                    {discoveryTaskCommandPreview}
-                                </Typography>
-                            ) : null}
                             {discoveryTaskLastOutput ? (
                                 <Typography
                                     variant="caption"
@@ -1557,10 +1528,7 @@ export default function SDRsPage() {
                             p: 1.25,
                             borderRadius: 1.25,
                             border: (theme) => `1px solid ${theme.palette.divider}`,
-                            backgroundColor: (theme) =>
-                                theme.palette.mode === 'dark'
-                                    ? alpha(theme.palette.common.white, 0.02)
-                                    : alpha(theme.palette.common.black, 0.02),
+                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
                         }}
                     >
                     <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, mb: 1 }}>
@@ -1581,7 +1549,7 @@ export default function SDRsPage() {
                                             py: 0.85,
                                             borderRadius: 1,
                                             border: (theme) => `1px solid ${theme.palette.divider}`,
-                                            backgroundColor: 'background.paper',
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
