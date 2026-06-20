@@ -19,6 +19,7 @@ import json
 import logging
 import socket
 import threading
+import time
 from typing import Any, Dict, List, Set, Union
 
 try:
@@ -41,6 +42,8 @@ discovered_servers: Dict[str, Dict[str, Union[str, List[Any], int, float]]] = {}
 _servers_lock = threading.Lock()
 # Track in-flight async service handlers so discovery shutdown can drain cleanly.
 _service_event_tasks: Set[asyncio.Task] = set()
+# Keep at most one in-flight Added/Updated handler per logical mDNS service.
+_service_tasks_by_name: Dict[str, asyncio.Task] = {}
 # Suppress late probe logs once discovery shutdown has started.
 _discovery_shutting_down = threading.Event()
 
@@ -414,6 +417,7 @@ async def query_server_for_sdrs(ip, port):
 async def on_service_state_change(zeroconf, service_type, name, state_change):
     """Callback for service state changes."""
     global discovered_servers
+    started_at = time.perf_counter()
     logger.info(f"Service {name} of type {service_type} state changed: {state_change}")
 
     if state_change is ServiceStateChange.Added or state_change is ServiceStateChange.Updated:
@@ -466,6 +470,13 @@ async def on_service_state_change(zeroconf, service_type, name, state_change):
                 else:
                     logger.warning(f"Server {name} is available but has status: {status}")
 
+            logger.debug(
+                "Service handler completed | name=%s state=%s elapsed=%.2fs",
+                name,
+                state_change,
+                time.perf_counter() - started_at,
+            )
+
     elif state_change is ServiceStateChange.Removed:
         logger.info(f"Service {name} removed")
         if name in discovered_servers:
@@ -473,8 +484,11 @@ async def on_service_state_change(zeroconf, service_type, name, state_change):
 
 
 # This is a wrapper that will handle the async callback properly
-def _service_state_change_done(task: asyncio.Task) -> None:
+def _service_state_change_done(service_name: str, task: asyncio.Task) -> None:
     _service_event_tasks.discard(task)
+    current_task = _service_tasks_by_name.get(service_name)
+    if current_task is task:
+        _service_tasks_by_name.pop(service_name, None)
     if task.cancelled():
         return
     exc = task.exception()
@@ -486,9 +500,21 @@ def service_state_change_handler(zeroconf, service_type, name, state_change):
     """Handle the service state change by scheduling the async callback."""
     if _discovery_shutting_down.is_set():
         return
+    if state_change is ServiceStateChange.Added or state_change is ServiceStateChange.Updated:
+        running_task = _service_tasks_by_name.get(name)
+        if running_task is not None and not running_task.done():
+            logger.debug(
+                "Coalescing Soapy service event | name=%s state=%s pending_handlers=%d",
+                name,
+                state_change,
+                len(_service_event_tasks),
+            )
+            return
     task = asyncio.create_task(on_service_state_change(zeroconf, service_type, name, state_change))
     _service_event_tasks.add(task)
-    task.add_done_callback(_service_state_change_done)
+    if state_change is ServiceStateChange.Added or state_change is ServiceStateChange.Updated:
+        _service_tasks_by_name[name] = task
+    task.add_done_callback(lambda done_task: _service_state_change_done(name, done_task))
 
 
 async def refresh_connected_sdrs():
@@ -522,6 +548,7 @@ async def discover_soapy_servers():
     """Discover SoapyRemote servers using AsyncZeroconf."""
     _discovery_shutting_down.clear()
     _service_event_tasks.clear()
+    _service_tasks_by_name.clear()
     logger.info("Starting mDNS discovery for SoapyRemote servers...")
 
     # Create AsyncZeroconf instance
@@ -577,17 +604,14 @@ async def discover_soapy_servers():
                 "Waiting for %d pending Soapy service handler task(s) to settle...",
                 len(pending_tasks),
             )
-            done, pending = await asyncio.wait(pending_tasks, timeout=8.0)
-            for task in pending:
-                task.cancel()
-            if pending:
-                await asyncio.gather(*pending, return_exceptions=True)
+            done, pending = await asyncio.wait(pending_tasks)
             logger.info(
                 "Soapy service handler drain complete: done=%d pending_cancelled=%d",
                 len(done),
                 len(pending),
             )
             _service_event_tasks.clear()
+            _service_tasks_by_name.clear()
         logger.info("Discovery completed.")
 
 
