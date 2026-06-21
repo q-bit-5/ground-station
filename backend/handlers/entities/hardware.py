@@ -407,6 +407,79 @@ async def get_local_uhd_devices():
     return reply
 
 
+async def get_local_airspy_sdr_devices():
+    """Retrieve a list of locally connected native Airspy/Airspy HF+ devices."""
+
+    reply: Dict[str, Union[bool, dict, list, str, None]] = {
+        "success": None,
+        "data": None,
+        "error": None,
+    }
+
+    try:
+        logger.info("Probing local native Airspy devices...")
+        probe_name = "local-airspy-probe"
+        probe_process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            "from hardware.airspyenum import probe_available_airspy_devices;"
+            "import json; print(probe_available_airspy_devices())",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        try:
+            stdout, stderr = await asyncio.wait_for(probe_process.communicate(), timeout=35)
+            stdout_text = _decode_subprocess_output(stdout)
+            stderr_text = _decode_subprocess_output(stderr)
+
+            if probe_process.returncode not in (0, None):
+                logger.error(
+                    "%s exited with return code %s",
+                    probe_name,
+                    probe_process.returncode,
+                )
+            _log_probe_stderr(probe_name, stderr_text)
+
+            if not stdout_text:
+                raise Exception("Airspy probe returned empty output")
+
+            try:
+                result = json.loads(stdout_text)
+            except json.JSONDecodeError as exc:
+                logger.error("%s produced invalid JSON: %s", probe_name, str(exc))
+                logger.error("%s stdout | %s", probe_name, _truncate_log_payload(stdout_text))
+                raise
+
+            _emit_probe_logs(probe_name, result.get("log"))
+
+            if result.get("success"):
+                result = result.get("data", [])
+            else:
+                probe_error = result.get("error") or "Error enumerating local Airspy devices"
+                raise Exception(probe_error)
+
+            reply["success"] = True
+            reply["data"] = result
+            logger.info("Detected %d local Airspy device(s)", len(result))
+            _log_probe_antenna_summary(probe_name, result)
+
+        except asyncio.TimeoutError:
+            probe_process.kill()
+            logger.error("Process timed out while probing local Airspy devices")
+            reply["success"] = False
+            reply["error"] = "Operation timed out after 5 seconds"
+
+    except Exception as e:
+        logger.error("Error probing local Airspy devices: %s", str(e))
+        logger.exception(e)
+        reply["success"] = False
+        reply["error"] = str(e)
+
+    logger.info("Done probing local Airspy devices")
+    return reply
+
+
 async def _fetch_sdr_parameters(dbsession, sdr_id, timeout=30.0):
     """Retrieve SDR parameters from the SDR process manager with caching"""
 
@@ -511,6 +584,61 @@ async def _fetch_sdr_parameters(dbsession, sdr_id, timeout=30.0):
                 "has_tuner_agc": True,
                 "has_rtl_agc": True,
                 "antennas": {"tx": [], "rx": ["RX"]},
+            }
+
+            sdr_parameters_cache[sdr_id] = params
+            reply = {"success": True, "data": params}
+
+        elif sdr.get("type") in ["airspy", "airspyhf"]:
+            logger.info("Getting SDR parameters from native Airspy backend for SDR: %s", sdr)
+            probe_process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-c",
+                "from hardware.airspyprobe import probe_native_airspy; "
+                "import json; "
+                f"print(json.dumps(probe_native_airspy({sdr})))",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    probe_process.communicate(), timeout=timeout
+                )
+                if probe_process.returncode != 0:
+                    error_output = _decode_subprocess_output(stderr)
+                    raise Exception(f"Native Airspy probe process failed: {error_output}")
+            except asyncio.TimeoutError:
+                probe_process.kill()
+                raise TimeoutError("Timed out while getting SDR parameters from native Airspy")
+
+            sdr_params_reply = json.loads(_decode_subprocess_output(stdout))
+            if sdr_params_reply.get("success") is False:
+                logger.error(sdr_params_reply)
+                raise Exception(sdr_params_reply.get("error") or "Native Airspy probe failed")
+
+            sdr_params = sdr_params_reply.get("data", {})
+            for log_line in sdr_params_reply.get("log", []):
+                logger.debug(log_line)
+
+            window_function_names = list(window_functions.keys())
+            fft_size_values = [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+
+            params = {
+                "gain_values": sdr_params.get("gains", []),
+                "sample_rate_values": _select_neat_sample_rates(sdr_params.get("rates", [])),
+                "sample_rate_values_full": sdr_params.get("rates", []),
+                "fft_size_values": fft_size_values,
+                "fft_window_values": window_function_names,
+                "has_bias_t": sdr_params.get("has_bias_t", False),
+                "has_tuner_agc": sdr_params.get("has_tuner_agc", False),
+                "has_rtl_agc": False,
+                "has_soapy_agc": False,
+                "antennas": sdr_params.get("antennas", {"tx": [], "rx": ["RX"]}),
+                "frequency_ranges": sdr_params.get("frequency_ranges", {}),
+                "clock_info": sdr_params.get("clock_info", {}),
+                "temperature": sdr_params.get("temperature", {}),
+                "capabilities": sdr_params.get("capabilities", {}),
             }
 
             sdr_parameters_cache[sdr_id] = params
@@ -1193,6 +1321,19 @@ async def get_local_uhd_devices_handler(
     }
 
 
+async def get_local_airspy_devices_handler(
+    sio: Any, data: Optional[Dict], logger: Any, sid: str
+) -> Dict[str, Union[bool, list, str]]:
+    """Get local native Airspy devices."""
+    logger.debug("Getting local native Airspy devices")
+    devices = await get_local_airspy_sdr_devices()
+    return {
+        "success": devices["success"],
+        "data": devices["data"],
+        "error": devices["error"],
+    }
+
+
 def register_handlers(registry):
     """Register hardware handlers with the command registry."""
     registry.register_batch(
@@ -1223,5 +1364,6 @@ def register_handlers(registry):
             "get-local-soapy-sdr-devices": (get_local_soapy_sdr_devices_handler, "api_call"),
             "get-local-rtl-sdr-devices": (get_local_rtl_sdr_devices_handler, "api_call"),
             "get-local-uhd-devices": (get_local_uhd_devices_handler, "api_call"),
+            "get-local-airspy-devices": (get_local_airspy_devices_handler, "api_call"),
         }
     )

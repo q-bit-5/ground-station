@@ -66,6 +66,7 @@ import {
     startSoapySDRDiscovery,
     fetchLocalRtlSdrDevices,
     fetchLocalUhdDevices,
+    fetchLocalAirspyDevices,
 } from './sdr-slice.jsx';
 import Paper from "@mui/material/Paper";
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -156,6 +157,28 @@ const sdrTypeFields = {
             name: 'UHD Device',
             frequency_min: 10,
             frequency_max: 6000,
+            serial: ''
+        }
+    },
+    airspy: {
+        excludeFields: ['host', 'port'],
+        fields: ['name', 'frequency_min', 'frequency_max', 'driver', 'serial'],
+        defaults: {
+            name: 'Airspy',
+            frequency_min: 24,
+            frequency_max: 1750,
+            driver: 'airspy',
+            serial: ''
+        }
+    },
+    airspyhf: {
+        excludeFields: ['host', 'port'],
+        fields: ['name', 'frequency_min', 'frequency_max', 'driver', 'serial'],
+        defaults: {
+            name: 'Airspy HF+',
+            frequency_min: 0.009,
+            frequency_max: 260,
+            driver: 'airspyhf',
             serial: ''
         }
     }
@@ -289,12 +312,14 @@ export default function SDRsPage() {
     const [pageSize, setPageSize] = useState(10);
     const [selectedRtlDevice, setSelectedRtlDevice] = useState('');
     const [selectedUhdDevice, setSelectedUhdDevice] = useState('');
+    const [selectedAirspyDevice, setSelectedAirspyDevice] = useState('');
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [discovering, setDiscovering] = useState(false);
     const [stickyAntennaPorts, setStickyAntennaPorts] = useState({ rx: [], tx: [] });
     const hasInitialized = useRef(false);
     const rtlProbeRequested = useRef(false);
     const uhdProbeRequested = useRef(false);
+    const airspyProbeRequested = useRef(false);
     const { t } = useTranslation('hardware');
 
     const {
@@ -313,13 +338,19 @@ export default function SDRsPage() {
         loadingLocalRtlSDRs,
         localUhdDevices,
         loadingLocalUhdSDRs,
+        localAirspyDevices,
+        loadingLocalAirspySDRs,
     } = useSelector((state) => state.sdrs);
     const { tasks: backgroundTasks = {} } = useSelector((state) => state.backgroundTasks);
     const rowSelectionModel = useMemo(() => toRowSelectionModel(selected), [selected]);
     const isEditing = Boolean(formValues.id);
     const isLocalSoapyProbeLoading = formValues.type === 'soapysdrlocal' && loadingLocalSDRs;
     const isDialogFormInputsDisabled =
-        loading || loadingLocalRtlSDRs || loadingLocalUhdSDRs || isLocalSoapyProbeLoading;
+        loading ||
+        loadingLocalRtlSDRs ||
+        loadingLocalUhdSDRs ||
+        loadingLocalAirspySDRs ||
+        isLocalSoapyProbeLoading;
     const isSoapyServerDiscoveryRunning = useMemo(
         () =>
             Object.values(backgroundTasks).some(
@@ -392,9 +423,11 @@ export default function SDRsPage() {
         if (openAddDialog) {
             setSelectedRtlDevice('');
             setSelectedUhdDevice('');
+            setSelectedAirspyDevice('');
         } else {
             rtlProbeRequested.current = false;
             uhdProbeRequested.current = false;
+            airspyProbeRequested.current = false;
             setStickyAntennaPorts({ rx: [], tx: [] });
         }
     }, [openAddDialog]);
@@ -410,6 +443,7 @@ export default function SDRsPage() {
         formValues.host,
         selectedRtlDevice,
         selectedUhdDevice,
+        selectedAirspyDevice,
         selectedSdrDevice
     ]);
 
@@ -428,6 +462,19 @@ export default function SDRsPage() {
             dispatch(fetchLocalUhdDevices({ socket }));
         }
     }, [dispatch, formValues.type, loadingLocalUhdSDRs, openAddDialog, socket]);
+
+    useEffect(() => {
+        const isNativeAirspy = formValues.type === 'airspy' || formValues.type === 'airspyhf';
+        if (
+            openAddDialog &&
+            isNativeAirspy &&
+            !loadingLocalAirspySDRs &&
+            !airspyProbeRequested.current
+        ) {
+            airspyProbeRequested.current = true;
+            dispatch(fetchLocalAirspyDevices({ socket }));
+        }
+    }, [dispatch, formValues.type, loadingLocalAirspySDRs, openAddDialog, socket]);
 
     const handleStartSoapyDiscovery = async () => {
         if (!socket) return;
@@ -453,6 +500,10 @@ export default function SDRsPage() {
                 return t('sdr.soapysdr_usb');
             case 'uhd':
                 return t('sdr.uhd');
+            case 'airspy':
+                return t('sdr.airspy', 'Airspy');
+            case 'airspyhf':
+                return t('sdr.airspy_hf', 'Airspy HF+');
             default:
                 return type || '-';
         }
@@ -564,6 +615,11 @@ export default function SDRsPage() {
             return normalizeAntennaInfo(localUhdDevices?.[Number(selectedUhdDevice)]?.antennas);
         }
 
+        if (formValues.type === 'airspy' || formValues.type === 'airspyhf') {
+            if (selectedAirspyDevice === '') return { rx: [], tx: [] };
+            return normalizeAntennaInfo(localAirspyDevices?.[Number(selectedAirspyDevice)]?.antennas);
+        }
+
         return { rx: [], tx: [] };
     };
 
@@ -625,9 +681,11 @@ export default function SDRsPage() {
         formValues.host,
         localRtlDevices,
         localUhdDevices,
+        localAirspyDevices,
         localSoapyDevices,
         selectedRtlDevice,
         selectedUhdDevice,
+        selectedAirspyDevice,
         selectedSdrDevice,
         soapyServers,
         stickyAntennaPorts.rx,
@@ -718,6 +776,9 @@ export default function SDRsPage() {
             // Probe local Soapy devices only when the user explicitly selects the local Soapy type.
             if (newType === 'soapysdrlocal') {
                 dispatch(fetchLocalSoapySDRDevices({ socket }));
+            }
+            if (newType === 'airspy' || newType === 'airspyhf') {
+                dispatch(fetchLocalAirspyDevices({ socket }));
             }
         } else {
             // Normal field update
@@ -856,6 +917,7 @@ export default function SDRsPage() {
                             dispatch(setSelectedSdrDevice('')); // Reset selected SDR when type changes
                             setSelectedRtlDevice('');
                             setSelectedUhdDevice('');
+                            setSelectedAirspyDevice('');
                         }}
                     >
                         <MenuItem value="" disabled>{t('sdr.select_sdr_type', 'Select SDR type')}</MenuItem>
@@ -864,6 +926,8 @@ export default function SDRsPage() {
                         <MenuItem value="soapysdrremote">{t('sdr.soapysdr_remote')}</MenuItem>
                         <MenuItem value="soapysdrlocal">{t('sdr.soapysdr_usb')}</MenuItem>
                         <MenuItem value="uhd">{t('sdr.uhd')}</MenuItem>
+                        <MenuItem value="airspy">{t('sdr.airspy', 'Airspy')}</MenuItem>
+                        <MenuItem value="airspyhf">{t('sdr.airspy_hf', 'Airspy HF+')}</MenuItem>
                     </Select>
                 </FormControl>
             );
@@ -1201,6 +1265,127 @@ export default function SDRsPage() {
                 }
             }
 
+            if ((selectedType === 'airspy' || selectedType === 'airspyhf') && !isEditing) {
+                const driverFilter = selectedType === 'airspyhf' ? 'airspyhf' : 'airspy';
+                const filteredAirspyDevices = (localAirspyDevices || []).filter((device) =>
+                    String(device?.driver || '').toLowerCase() === driverFilter
+                );
+
+                if (loadingLocalAirspySDRs) {
+                    fields.push(
+                        <Alert
+                            key="loading-airspy-devices"
+                            severity="info"
+                            sx={{
+                                mt: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                '& .MuiAlert-message': {
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    display: 'inline-block',
+                                    width: '16px',
+                                    height: '16px',
+                                    border: '2px solid #e3f2fd',
+                                    borderTop: '2px solid #1976d2',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite',
+                                    '@keyframes spin': {
+                                        '0%': { transform: 'rotate(0deg)' },
+                                        '100%': { transform: 'rotate(360deg)' }
+                                    }
+                                }}
+                            />
+                            <Typography variant="body2" component="span">
+                                {t('sdr.probing_airspy', 'Probing for local Airspy devices...')}
+                            </Typography>
+                        </Alert>
+                    );
+                } else {
+                    fields.push(
+                        <Box
+                            key="local-airspy-controls-row"
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
+                            <FormControl fullWidth size="small">
+                                <InputLabel id="local-airspy-device-label">
+                                    {t('sdr.select_airspy_device', 'Airspy Device')}
+                                </InputLabel>
+                                <Select
+                                    labelId="local-airspy-device-label"
+                                    label={t('sdr.select_airspy_device', 'Airspy Device')}
+                                    size="small"
+                                    value={selectedAirspyDevice}
+                                    disabled={filteredAirspyDevices.length === 0}
+                                    onChange={(e) => {
+                                        const selectedAirspyIndex = e.target.value;
+                                        setSelectedAirspyDevice(selectedAirspyIndex);
+
+                                        if (selectedAirspyIndex !== '') {
+                                            const selectedDevice = filteredAirspyDevices[selectedAirspyIndex];
+                                            if (selectedDevice) {
+                                                const rxRange = selectedDevice?.frequency_ranges?.rx || {};
+                                                const parsedMin = Number(rxRange?.min);
+                                                const parsedMax = Number(rxRange?.max);
+                                                const newValues = {
+                                                    ...formValues,
+                                                    name: selectedDevice.label || (selectedType === 'airspyhf' ? 'Airspy HF+' : 'Airspy'),
+                                                    serial: selectedDevice.serial || '',
+                                                    driver: selectedDevice.driver || driverFilter,
+                                                    frequency_min: Number.isFinite(parsedMin) ? parsedMin : formValues.frequency_min,
+                                                    frequency_max: Number.isFinite(parsedMax) ? parsedMax : formValues.frequency_max,
+                                                };
+                                                dispatch(setFormValues(newValues));
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <MenuItem value="" disabled>{t('sdr.select_sdr')}</MenuItem>
+                                    {filteredAirspyDevices.map((device, index) => (
+                                        <MenuItem key={index} value={index}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <MemoryIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                                <Box component="span">
+                                                    {device.label || device.driver || `Airspy ${index}`}
+                                                    {device.serial ? ` :: ${device.serial}` : ''}
+                                                </Box>
+                                            </Box>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <Tooltip title={t('sdr.refresh_airspy_devices', 'Refresh Airspy devices')}>
+                                <IconButton
+                                    size="small"
+                                    color="primary"
+                                    aria-label={t('sdr.refresh_airspy_devices', 'Refresh Airspy devices')}
+                                    onClick={() => dispatch(fetchLocalAirspyDevices({ socket }))}
+                                >
+                                    <RefreshIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                    );
+
+                    if (filteredAirspyDevices.length === 0) {
+                        fields.push(
+                            <Alert key="no-airspy-devices" severity="info" sx={{ mt: 1 }}>
+                                {t(
+                                    'sdr.no_airspy_devices',
+                                    'No local Airspy devices detected. Please connect a device and refresh.'
+                                )}
+                            </Alert>
+                        );
+                    }
+                }
+            }
+
             // Host field - only show for types that don't exclude it
             if (!config.excludeFields.includes('host')) {
                 if (selectedType === 'soapysdrremote' && isEditing) {
@@ -1488,6 +1673,7 @@ export default function SDRsPage() {
             const hasSelectedProbedDevice =
                 (rtlUsbTypes.has(selectedType) && selectedRtlDevice !== '') ||
                 (selectedType === 'uhd' && selectedUhdDevice !== '') ||
+                ((selectedType === 'airspy' || selectedType === 'airspyhf') && selectedAirspyDevice !== '') ||
                 ((selectedType === 'soapysdrlocal' || selectedType === 'soapysdrremote') &&
                     selectedSdrDevice !== '');
             if (hasSelectedProbedDevice && !hasProbeAntennaPorts) {

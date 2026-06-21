@@ -117,6 +117,8 @@ class SDRType(str, PyEnum):
     RTLSDRTCPV3 = "rtlsdrtcpv3"
     RTLSDRUSBV4 = "rtlsdrusbv4"
     RTLSDRTCPV4 = "rtlsdrtcpv4"
+    AIRSPY = "airspy"
+    AIRSPYHF = "airspyhf"
     SOAPYSDRLOCAL = "soapysdrlocal"
     SOAPYSDRREMOTE = "soapysdrremote"
     UHD = "uhd"

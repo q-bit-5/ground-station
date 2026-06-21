@@ -89,6 +89,28 @@ export const fetchLocalUhdDevices = createAsyncThunk(
     }
 );
 
+export const fetchLocalAirspyDevices = createAsyncThunk(
+    'sdrs/fetchLocalAirspyDevices',
+    async ({socket}, {rejectWithValue}) => {
+        try {
+            return await new Promise((resolve, reject) => {
+                socket.emit("api.call", {
+  cmd: 'get-local-airspy-devices',
+  data: null
+}, res => {
+  if (res.success) {
+    resolve(res.data);
+  } else {
+    reject(new Error('Failed to fetch local Airspy devices'));
+  }
+});
+            });
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
 
 export const fetchSoapySDRServers = createAsyncThunk(
     'sdrs/fetchSoapySDRServers',
@@ -239,6 +261,7 @@ const sdrsSlice = createSlice({
         loadingLocalSDRs: false,
         loadingLocalRtlSDRs: false,
         loadingLocalUhdSDRs: false,
+        loadingLocalAirspySDRs: false,
         pageSize: 10,
         formValues: defaultSDR,
         soapyServers: {},
@@ -246,6 +269,7 @@ const sdrsSlice = createSlice({
         localSoapyDevices: [],
         localRtlDevices: [],
         localUhdDevices: [],
+        localAirspyDevices: [],
     },
     reducers: {
         setSDRs: (state, action) => {
@@ -412,6 +436,21 @@ const sdrsSlice = createSlice({
             })
             .addCase(fetchLocalUhdDevices.rejected, (state, action) => {
                 state.loadingLocalUhdSDRs = false;
+                state.status = 'failed';
+                state.error = action.payload;
+            })
+            .addCase(fetchLocalAirspyDevices.pending, (state) => {
+                state.loadingLocalAirspySDRs = true;
+                state.error = null;
+                state.status = 'loading';
+            })
+            .addCase(fetchLocalAirspyDevices.fulfilled, (state, action) => {
+                state.loadingLocalAirspySDRs = false;
+                state.status = 'succeeded';
+                state.localAirspyDevices = action.payload;
+            })
+            .addCase(fetchLocalAirspyDevices.rejected, (state, action) => {
+                state.loadingLocalAirspySDRs = false;
                 state.status = 'failed';
                 state.error = action.payload;
             });

@@ -455,6 +455,42 @@ class TestSDRsCRUD:
         assert result["data"]["name"] == "RTL-SDR TCP"
         assert result["data"]["host"] == "192.168.1.100"
 
+    async def test_add_sdr_airspy_success(self, db_session):
+        """Test successful native Airspy SDR creation."""
+        sdr_data = {
+            "name": "Airspy R2",
+            "type": "airspy",
+            "driver": "airspy",
+            "serial": "B58069DC394C1413",
+            "frequency_min": 24,
+            "frequency_max": 1750,
+        }
+
+        result = await add_sdr(db_session, sdr_data)
+
+        assert result["success"] is True
+        assert str(result["data"]["type"]).lower() == "airspy"
+        assert result["data"]["driver"] == "airspy"
+        assert result["data"]["serial"] == "B58069DC394C1413"
+
+    async def test_add_sdr_airspyhf_success(self, db_session):
+        """Test successful native Airspy HF+ SDR creation."""
+        sdr_data = {
+            "name": "Airspy HF+ Discovery",
+            "type": "airspyhf",
+            "driver": "airspyhf",
+            "serial": "A000000000000001",
+            "frequency_min": 0,
+            "frequency_max": 260,
+        }
+
+        result = await add_sdr(db_session, sdr_data)
+
+        assert result["success"] is True
+        assert str(result["data"]["type"]).lower() == "airspyhf"
+        assert result["data"]["driver"] == "airspyhf"
+        assert result["data"]["serial"] == "A000000000000001"
+
     async def test_add_sdr_missing_name(self, db_session):
         """Test SDR creation fails without name."""
         sdr_data = {"type": "rtlsdrusbv3", "serial": "12345678"}

@@ -721,13 +721,12 @@ const MainWaterfallDisplay = React.memo(function MainWaterfallDisplay({
 
     useEffect(() => {
         return () => {
-            if (!canvasTransferredRef.current) {
-                return;
-            }
-            detachCanvases();
-            canvasTransferredRef.current = false;
+            // Do not detach/reset worker canvas binding on unmount here.
+            // OffscreenCanvas transfer is one-shot per HTMLCanvasElement and React dev
+            // StrictMode can run passive effect cleanup+setup cycles on mount, which
+            // would otherwise trigger a second transfer and freeze rendering.
         };
-    }, [detachCanvases]);
+    }, []);
 
     // Add event listener for fullscreen change
     useEffect(() => {
