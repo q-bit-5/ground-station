@@ -17,6 +17,7 @@ from handlers.entities import (
     satellites,
     scheduler,
     sdr,
+    sessions,
     setup,
     systeminfo,
     tracking,
@@ -44,6 +45,7 @@ def _register_all_handlers():
     tracking.register_handlers(handler_registry)
     vfo.register_handlers(handler_registry)
     systeminfo.register_handlers(handler_registry)
+    sessions.register_handlers(handler_registry)
     scheduler.register_handlers(handler_registry)
     decoderconfig.register_handlers(handler_registry)
     celestial.register_handlers(handler_registry)
@@ -63,6 +65,17 @@ SOCKET_TOKENS: Dict[str, str] = {}
 
 def register_socketio_handlers(sio):
     """Register Socket.IO event handlers."""
+
+    async def _sync_authenticated_room(sid: str, auth_context: Optional[Dict[str, Any]]) -> None:
+        """Keep authenticated broadcast-room membership aligned with live auth state."""
+        is_authenticated = bool(auth_context)
+        try:
+            if is_authenticated:
+                await sio.enter_room(sid, authsvc.AUTHENTICATED_SOCKET_ROOM)
+            else:
+                await sio.leave_room(sid, authsvc.AUTHENTICATED_SOCKET_ROOM)
+        except Exception:
+            logger.debug("Failed to sync authenticated room for sid=%s", sid, exc_info=True)
 
     @sio.on("connect")
     async def connect(sid, environ, auth=None):
@@ -134,6 +147,9 @@ def register_socketio_handlers(sio):
             )
         except Exception:
             logger.debug("Failed to set session metadata in tracker", exc_info=True)
+
+        # Restrict runtime snapshot broadcasts to authenticated sockets only.
+        await _sync_authenticated_room(sid, auth_context)
 
         # Send current running tasks to newly connected client.
         if runtimestate.background_task_manager:
@@ -211,6 +227,9 @@ def register_socketio_handlers(sio):
                 )
             except Exception:
                 logger.debug("Failed to refresh session owner metadata", exc_info=True)
+
+        # Keep stream room membership synchronized with token revalidation outcomes.
+        await _sync_authenticated_room(sid, auth_context)
 
         reply = await dispatch_request(
             sio,

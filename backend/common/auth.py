@@ -46,6 +46,8 @@ _setup_cache_ttl_seconds = 3.0
 _setup_cache: Dict[str, Any] = {"value": True, "expires_at": 0.0}
 _sqlite_lock_retry_delays_seconds = (0.25, 0.5, 1.0, 2.0)
 AUTH_SESSION_COOKIE_NAME = "gs_session"
+# Socket.IO room used for authenticated-only broadcasts.
+AUTHENTICATED_SOCKET_ROOM = "authenticated"
 SETUP_MODE_NONE = "none"
 SETUP_MODE_FULL = "full_setup"
 SETUP_MODE_ADMIN_RECOVERY = "admin_recovery"

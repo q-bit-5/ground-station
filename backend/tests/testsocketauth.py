@@ -7,6 +7,7 @@ from typing import Any, Dict
 import pytest
 
 from handlers import socket as sockethandlers
+from handlers.entities import sessions as sessionhandlers
 
 
 class _FakeSio:
@@ -14,6 +15,8 @@ class _FakeSio:
         self.handlers: Dict[str, Any] = {}
         self.disconnect_calls: list[str] = []
         self.emit_calls: list[Dict[str, Any]] = []
+        self.enter_room_calls: list[Dict[str, str]] = []
+        self.leave_room_calls: list[Dict[str, str]] = []
 
     def on(self, event: str):
         def _decorator(handler):
@@ -27,6 +30,12 @@ class _FakeSio:
 
     async def disconnect(self, sid: str):
         self.disconnect_calls.append(sid)
+
+    async def enter_room(self, sid: str, room: str):
+        self.enter_room_calls.append({"sid": sid, "room": room})
+
+    async def leave_room(self, sid: str, room: str):
+        self.leave_room_calls.append({"sid": sid, "room": room})
 
 
 @pytest.fixture(autouse=True)
@@ -96,7 +105,7 @@ async def test_api_call_reauthenticates_each_request(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_session_snapshot_commands_are_not_registered(monkeypatch):
+async def test_session_snapshot_commands_work_for_authenticated_user(monkeypatch):
     sio = _FakeSio()
     sockethandlers.register_socketio_handlers(sio)
     connect = sio.handlers["connect"]
@@ -110,8 +119,39 @@ async def test_session_snapshot_commands_are_not_registered(monkeypatch):
         assert token == "token-snapshot"
         return {"username": "admin", "role": "admin"}
 
+    def _get_runtime_snapshot():
+        return {
+            "sessions": {"sid-snapshot": {"sdr_id": "sdr-1"}},
+            "sdrs": {"sdr-1": {"clients": ["sid-snapshot"]}},
+        }
+
+    def _get_session_sdr(_session_id: str):
+        return "sdr-1"
+
+    def _get_session_rig(_session_id: str):
+        return "rig-1"
+
+    def _get_session_vfo_int(_session_id: str):
+        return 1
+
+    def _get_session_ip(_session_id: str):
+        return "127.0.0.1"
+
+    def _get_session_config(_session_id: str):
+        return {"band": "VHF"}
+
     monkeypatch.setattr(sockethandlers.authsvc, "is_setup_required", _is_setup_required)
     monkeypatch.setattr(sockethandlers.authsvc, "authenticate_token", _authenticate_token)
+    monkeypatch.setattr(
+        sessionhandlers.session_service, "get_runtime_snapshot", _get_runtime_snapshot
+    )
+    monkeypatch.setattr(sessionhandlers.session_tracker, "get_session_sdr", _get_session_sdr)
+    monkeypatch.setattr(sessionhandlers.session_tracker, "get_session_rig", _get_session_rig)
+    monkeypatch.setattr(
+        sessionhandlers.session_tracker, "get_session_vfo_int", _get_session_vfo_int
+    )
+    monkeypatch.setattr(sessionhandlers.session_tracker, "get_session_ip", _get_session_ip)
+    monkeypatch.setattr(sessionhandlers.session_service, "get_session_config", _get_session_config)
 
     connect_reply = await connect(
         "sid-snapshot",
@@ -126,16 +166,19 @@ async def test_session_snapshot_commands_are_not_registered(monkeypatch):
         {"cmd": "fetch_session_view", "data": {"session_id": "sid-snapshot"}},
     )
 
-    # Session introspection commands are intentionally disabled to remove this attack surface.
-    assert runtime_reply == {
-        "success": False,
-        "data": None,
-        "error": "Unknown command: fetch_runtime_snapshot",
-    }
+    assert runtime_reply["success"] is True
+    assert runtime_reply["data"]["sessions"]["sid-snapshot"]["ip"] == "127.0.0.1"
     assert session_reply == {
-        "success": False,
-        "data": None,
-        "error": "Unknown command: fetch_session_view",
+        "success": True,
+        "data": {
+            "session_id": "sid-snapshot",
+            "sdr_id": "sdr-1",
+            "rig_id": "rig-1",
+            "vfo": 1,
+            "ip": "127.0.0.1",
+            "config": {"band": "VHF"},
+        },
+        "error": None,
     }
 
 
