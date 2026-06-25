@@ -4,10 +4,22 @@
 
 import { test, expect } from '@playwright/test';
 
+async function ensureSourcesSubTabSelected(page) {
+  const sourcesTab = page.getByRole('tab', { name: /^sources$/i }).first();
+  if (await sourcesTab.count() === 0) {
+    return;
+  }
+  const isSelected = await sourcesTab.getAttribute('aria-selected');
+  if (isSelected !== 'true') {
+    await sourcesTab.click();
+  }
+}
+
 test.describe('TLE Sources', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/admin/satellites/sources');
     await page.waitForLoadState('domcontentloaded');
+    await ensureSourcesSubTabSelected(page);
   });
 
   test('should display TLE sources page', async ({ page }) => {
@@ -235,6 +247,7 @@ test.describe('TLE Sources CRUD', () => {
   test('should allow adding, editing, and deleting a TLE source', async ({ page }) => {
     await page.goto('/admin/satellites/sources');
     await page.waitForLoadState('domcontentloaded');
+    await ensureSourcesSubTabSelected(page);
 
     const sourceName = `E2E Source ${Date.now()}`;
     const updatedName = `${sourceName} Updated`;
