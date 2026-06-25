@@ -397,6 +397,7 @@ flowchart TB
 *   **[SoapySDR](https://pypi.org/project/SoapySDR/):** A vendor and platform neutral SDR support library.
 *   **[SatDump](https://github.com/SatDump/SatDump):** Satellite decoder suite used for weather image decoding workflows.
 *   **[gr-satellites](https://github.com/daniestevez/gr-satellites):** GNU Radio out-of-tree modules for satellite communications decoding.
+*   **[GNSS-SDR](https://github.com/gnss-sdr/gnss-sdr):** Open-source software-defined GNSS receiver used by the GNSS decoder path.
 
 ### Frontend
 
@@ -406,6 +407,7 @@ flowchart TB
 *   **[Vite](https://vitejs.dev/):** A build tool that aims to provide a faster and leaner development experience for modern web projects.
 *   **[Socket.IO Client](https://socket.io/docs/v4/client-api/):** The client-side library for Socket.IO.
 *   **[Leaflet](https://leafletjs.com/):** An open-source JavaScript library for mobile-friendly interactive maps.
+*   **[MapLibre Maps](https://maplibre.org/):** Open-source map rendering engine used for 2D and globe map views.
 *   **[satellite.js](https://github.com/shashwatak/satellite-js):** A JavaScript library to propagate satellite orbits.
 
 ## SDR Device Support
@@ -416,6 +418,7 @@ Dedicated worker processes provide IQ acquisition, FFT processing, and demodulat
 *   **Airspy / AirspyHF+** native worker support (`AirspyHF+` currently untested)
 *   **SoapySDR** devices locally or through SoapyRemote: RTL-SDR, Airspy, HackRF, HydraSDR, LimeSDR, PlutoSDR, UHD/USRP, and SDRplay (RSP series)
 *   **UHD/USRP** radios via a UHD worker
+*   **GNSS-SDR** integration for GNSS decoding workflows (requires `gnss-sdr` available in `PATH`)
 *   **Need another SoapySDR device?** Open a GitHub issue and request support.
 
 The SDR architecture uses a pub/sub pattern (IQ Broadcaster) to separate IQ acquisition from signal processing:
