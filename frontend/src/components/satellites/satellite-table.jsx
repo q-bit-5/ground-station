@@ -207,7 +207,8 @@ const SatelliteTable = React.memo(function SatelliteTable() {
         {
             field: 'name',
             headerName: t('satellite_database.name'),
-            width: 200,
+            flex: 1,
+            minWidth: 200,
         },
         {
             field: 'norad_id',
@@ -532,30 +533,33 @@ const SatelliteTable = React.memo(function SatelliteTable() {
             });
     };
 
+    const filterFieldSx = {
+        '& .MuiOutlinedInput-root': {
+            backgroundColor: (theme) =>
+                theme.palette.mode === 'dark' ? '#121212' : 'background.paper',
+        },
+    };
+
     return (
         <Box elevation={3} sx={{width: '100%', marginTop: 0}}>
-            <Alert severity="info">
-                <AlertTitle>{t('satellite_database.title')}</AlertTitle>
-                {t('satellite_database.subtitle')}
-            </Alert>
-            <Box sx={{ display: 'flex', gap: 2, marginTop: 2, marginBottom: 1 }}>
-                <FormControl sx={{minWidth: 200, flex: 1}} variant={"outlined"}>
+            <Box sx={{ display: 'flex', gap: 2, marginTop: 0, marginBottom: 1 }}>
+                <FormControl sx={{minWidth: 200, flex: 1, ...filterFieldSx}} variant={"outlined"}>
                     <InputLabel id="sat-group-select-label">{t('satellite_database.select_group')}</InputLabel>
                     <Select
                         disabled={loading}
                         value={satGroupId}
                         id="grouped-select"
                         labelId="sat-group-select-label"
-                        input={
-                            <OutlinedInput
-                                label={t('satellite_database.select_group')}
-                                sx={{
-                                    backgroundColor: (theme) =>
-                                        theme.palette.mode === 'dark' ? '#121212' : '#ffffff',
-                                }}
-                            />
-                        }
+                        input={<OutlinedInput label={t('satellite_database.select_group')} />}
                         variant={"outlined"}
+                        MenuProps={{
+                            PaperProps: {
+                                sx: {
+                                    backgroundColor: (theme) =>
+                                        theme.palette.mode === 'dark' ? '#121212' : 'background.paper',
+                                },
+                            },
+                        }}
                         onChange={handleOnGroupChange}
                     >
                         <ListSubheader>{t('satellite_database.user_groups')}</ListSubheader>
@@ -599,7 +603,7 @@ const SatelliteTable = React.memo(function SatelliteTable() {
                     </Select>
                 </FormControl>
                 <TextField
-                    sx={{ minWidth: 200, flex: 1 }}
+                    sx={{ minWidth: 200, flex: 1, ...filterFieldSx }}
                     variant="outlined"
                     label={t('satellite_database.search_satellites')}
                     value={localSearchValue}
@@ -727,6 +731,10 @@ const SatelliteTable = React.memo(function SatelliteTable() {
                     </Button>
                 </Stack>
             </div>
+            <Alert severity="info" sx={{ mt: 2 }}>
+                <AlertTitle>{t('satellite_database.title')}</AlertTitle>
+                {t('satellite_database.subtitle')}
+            </Alert>
             <Dialog
                 open={openDeleteConfirm}
                 onClose={() => dispatch(setOpenDeleteConfirm(false))}

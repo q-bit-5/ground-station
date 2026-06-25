@@ -124,15 +124,27 @@ export function SettingsTabAbout () {
 }
 
 export function AdminSatellitesSourcesPage() {
-    return <OrbitalSourcesForm />;
+    return (
+        <AdminSatellitesPageLayout activeTab="sources">
+            <OrbitalSourcesForm />
+        </AdminSatellitesPageLayout>
+    );
 }
 
 export function AdminSatellitesCatalogPage() {
-    return <SatellitesForm />;
+    return (
+        <AdminSatellitesPageLayout activeTab="catalog">
+            <SatellitesForm />
+        </AdminSatellitesPageLayout>
+    );
 }
 
 export function AdminSatellitesGroupsPage() {
-    return <SatelliteGroupsForm />;
+    return (
+        <AdminSatellitesPageLayout activeTab="groups">
+            <SatelliteGroupsForm />
+        </AdminSatellitesPageLayout>
+    );
 }
 
 export function UserPreferencesPage() {
@@ -207,6 +219,51 @@ const ADMIN_SYSTEM_TABS = [
     { key: "maintenance", labelKey: "tabs.maintenance", defaultLabel: "Maintenance", path: "/admin/system/maintenance" },
     { key: "about", labelKey: "tabs.about", defaultLabel: "About", path: "/admin/system/about" },
 ];
+
+const ADMIN_SATELLITES_TABS = [
+    { key: "sources", labelKey: "tabs.orbital_sources", defaultLabel: "Orbital sources", path: "/admin/satellites/sources" },
+    { key: "catalog", labelKey: "tabs.catalog", defaultLabel: "Catalog", path: "/admin/satellites/catalog" },
+    { key: "groups", labelKey: "tabs.groups", defaultLabel: "Groups", path: "/admin/satellites/groups" },
+];
+
+const AdminSatellitesPageLayout = React.memo(function AdminSatellitesPageLayout({ activeTab, children }) {
+    const { t } = useTranslation('settings');
+    const navigate = useNavigate();
+
+    const handleTabChange = (_event, nextTab) => {
+        if (nextTab === activeTab) {
+            return;
+        }
+
+        const tabDefinition = ADMIN_SATELLITES_TABS.find((tab) => tab.key === nextTab);
+        if (tabDefinition) {
+            navigate(tabDefinition.path);
+        }
+    };
+
+    return (
+        <Box sx={{ flexGrow: 1, bgcolor: 'background.paper' }}>
+            <AntTabs
+                value={activeTab}
+                onChange={handleTabChange}
+                aria-label={t('tabs.satellites')}
+                scrollButtons={true}
+                variant="scrollable"
+                allowScrollButtonsMobile
+                sx={getSettingsTabRowSx('detailRow')}
+            >
+                {ADMIN_SATELLITES_TABS.map((tab) => (
+                    <AntTab
+                        key={tab.key}
+                        value={tab.key}
+                        label={t(tab.labelKey, { defaultValue: tab.defaultLabel })}
+                    />
+                ))}
+            </AntTabs>
+            {children}
+        </Box>
+    );
+});
 
 const AdminSystemPageLayout = React.memo(function AdminSystemPageLayout({ activeTab, children }) {
     const { t } = useTranslation('settings');
