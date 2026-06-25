@@ -221,7 +221,7 @@ const ADMIN_SYSTEM_TABS = [
 ];
 
 const ADMIN_SATELLITES_TABS = [
-    { key: "sources", labelKey: "tabs.orbital_sources", defaultLabel: "Orbital sources", path: "/admin/satellites/sources" },
+    { key: "sources", labelKey: "tabs.orbital_sources", defaultLabel: "Orbital Data", path: "/admin/satellites/sources" },
     { key: "catalog", labelKey: "tabs.catalog", defaultLabel: "Catalog", path: "/admin/satellites/catalog" },
     { key: "groups", labelKey: "tabs.groups", defaultLabel: "Groups", path: "/admin/satellites/groups" },
 ];
@@ -546,7 +546,7 @@ const SatelliteGroupsForm = () => {
 const OrbitalSourcesForm = () => {
 
     return (
-        <Paper elevation={3} sx={{ padding: 2, marginTop: 0, borderRadius: 0}} variant="elevation">
+        <Paper elevation={3} sx={{ pb: 2, pt: 0, marginTop: 0, borderRadius: 0}} variant="elevation">
             <SourcesTable/>
         </Paper>);
 };

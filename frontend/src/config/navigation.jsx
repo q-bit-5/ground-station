@@ -293,7 +293,7 @@ export const getNavigation = ({ isAdmin = false } = {}) => {
         },
         {
             segment: 'admin/satellites/sources',
-            title: i18n.t('orbital_sources', { ns: 'navigation' }),
+            title: i18n.t('orbital_sources', { ns: 'navigation', defaultValue: 'Orbital Data' }),
             icon: <OrbitalSourcesIconWithStatus />,
         },
         {
