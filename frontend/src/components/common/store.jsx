@@ -273,7 +273,29 @@ const celestialPersistConfig = {
 const celestialMonitoredPersistConfig = {
     key: 'celestialMonitored',
     storage,
-    whitelist: ['selectedIds', 'tableColumnVisibility', 'tablePageSize', 'tableSortModel']
+    stateReconciler: (inboundState, originalState) => {
+        if (!inboundState) {
+            return originalState;
+        }
+        const inboundDefaultsVersion = Number(inboundState.tableDefaultsVersion || 0);
+        const shouldApplyLatestDefaults = inboundDefaultsVersion < 2;
+        // Apply monitored-table defaults once when loading older persisted payloads.
+        // After this migration, user customizations continue to persist normally.
+        return {
+            ...originalState,
+            ...inboundState,
+            tableDefaultsVersion: shouldApplyLatestDefaults
+                ? originalState.tableDefaultsVersion
+                : (inboundState.tableDefaultsVersion ?? originalState.tableDefaultsVersion),
+            tableColumnVisibility: shouldApplyLatestDefaults
+                ? originalState.tableColumnVisibility
+                : (inboundState.tableColumnVisibility ?? originalState.tableColumnVisibility),
+            tableSortModel: shouldApplyLatestDefaults
+                ? originalState.tableSortModel
+                : (inboundState.tableSortModel ?? originalState.tableSortModel),
+        };
+    },
+    whitelist: ['selectedIds', 'tableDefaultsVersion', 'tableColumnVisibility', 'tablePageSize', 'tableSortModel']
 };
 
 const celestialDisplayPersistConfig = {
