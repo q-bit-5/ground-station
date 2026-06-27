@@ -129,13 +129,15 @@ export const EARTHVIEW_PASSES_DEFAULT_COLUMN_VISIBILITY = {
 
 export const EARTHVIEW_PASSES_DEFAULT_PAGE_SIZE = 5;
 export const EARTHVIEW_SATELLITES_DEFAULT_PAGE_SIZE = 50;
+// Bump when satellites table defaults change and should override older persisted values once.
+export const EARTHVIEW_SATELLITES_TABLE_DEFAULTS_VERSION = 1;
 export const EARTHVIEW_PASSES_DEFAULT_SORT_MODEL = [
     {field: 'status', sort: 'asc'},
     {field: 'event_start', sort: 'asc'},
 ];
 export const EARTHVIEW_SATELLITES_DEFAULT_SORT_MODEL = [
-    {field: 'visibility', sort: 'desc'},
     {field: 'elevation', sort: 'desc'},
+    {field: 'visibility', sort: 'desc'},
     {field: 'status', sort: 'asc'},
     {field: 'name', sort: 'asc'},
 ];
@@ -369,6 +371,7 @@ const earthViewSlice = createSlice({
         openSatellitesTableSettingsDialog: false,
         nextPassesHours: 4.0,
         satellitesTableColumnVisibility: { ...EARTHVIEW_SATELLITES_DEFAULT_COLUMN_VISIBILITY },
+        satellitesTableDefaultsVersion: EARTHVIEW_SATELLITES_TABLE_DEFAULTS_VERSION,
         passesTableColumnVisibility: { ...EARTHVIEW_PASSES_DEFAULT_COLUMN_VISIBILITY },
         recentSatelliteGroups: [],
         showGeostationarySatellites: true, // Default on - show geostationary satellites
@@ -533,6 +536,7 @@ const earthViewSlice = createSlice({
             state.passesTableColumnVisibility = action.payload;
         },
         resetSatellitesTableSettings(state) {
+            state.satellitesTableDefaultsVersion = EARTHVIEW_SATELLITES_TABLE_DEFAULTS_VERSION;
             state.satellitesTableColumnVisibility = { ...EARTHVIEW_SATELLITES_DEFAULT_COLUMN_VISIBILITY };
             state.satellitesTablePageSize = EARTHVIEW_SATELLITES_DEFAULT_PAGE_SIZE;
             state.satellitesTableSortModel = [...EARTHVIEW_SATELLITES_DEFAULT_SORT_MODEL];

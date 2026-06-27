@@ -32,7 +32,7 @@ import synchronizeReducer from '../satellites/synchronize-slice.jsx';
 import preferencesReducer from '../settings/preferences-slice.jsx';
 import targetSatTrackReducer from '../target/target-slice.jsx'
 import trackerInstancesReducer from '../target/tracker-instances-slice.jsx';
-import earthViewTrackReducer from '../earthview/earthview-slice.jsx';
+import earthViewTrackReducer, { EARTHVIEW_SATELLITES_TABLE_DEFAULTS_VERSION } from '../earthview/earthview-slice.jsx';
 import dashboardReducer from '../dashboard/dashboard-slice.jsx';
 import waterfallReducer from '../waterfall/waterfall-slice.jsx';
 import gnssReducer from '../waterfall/gnss-slice.jsx';
@@ -175,7 +175,45 @@ const targetSatTrackPersistConfig = {
 const earthViewTrackPersistConfig = {
     key: 'earthViewTrack',
     storage,
-    whitelist: ['selectedSatGroupId', 'selectedSatelliteId', 'satellitesTableColumnVisibility', 'passesTablePageSize', 'satellitesTablePageSize', 'passesTableSortModel', 'satellitesTableSortModel', 'showGeostationarySatellites', 'mapEngine', 'mapZoomByEngine']
+    stateReconciler: (inboundState, originalState) => {
+        if (!inboundState) {
+            return originalState;
+        }
+        const inboundDefaultsVersion = Number(inboundState.satellitesTableDefaultsVersion || 0);
+        // Apply updated Earthview satellites-table defaults once for older persisted payloads.
+        const shouldApplyLatestSatellitesTableDefaults = (
+            inboundDefaultsVersion < EARTHVIEW_SATELLITES_TABLE_DEFAULTS_VERSION
+        );
+        return {
+            ...originalState,
+            ...inboundState,
+            satellitesTableDefaultsVersion: shouldApplyLatestSatellitesTableDefaults
+                ? originalState.satellitesTableDefaultsVersion
+                : (inboundState.satellitesTableDefaultsVersion ?? originalState.satellitesTableDefaultsVersion),
+            satellitesTableColumnVisibility: shouldApplyLatestSatellitesTableDefaults
+                ? originalState.satellitesTableColumnVisibility
+                : (inboundState.satellitesTableColumnVisibility ?? originalState.satellitesTableColumnVisibility),
+            satellitesTablePageSize: shouldApplyLatestSatellitesTableDefaults
+                ? originalState.satellitesTablePageSize
+                : (inboundState.satellitesTablePageSize ?? originalState.satellitesTablePageSize),
+            satellitesTableSortModel: shouldApplyLatestSatellitesTableDefaults
+                ? originalState.satellitesTableSortModel
+                : (inboundState.satellitesTableSortModel ?? originalState.satellitesTableSortModel),
+        };
+    },
+    whitelist: [
+        'selectedSatGroupId',
+        'selectedSatelliteId',
+        'satellitesTableDefaultsVersion',
+        'satellitesTableColumnVisibility',
+        'passesTablePageSize',
+        'satellitesTablePageSize',
+        'passesTableSortModel',
+        'satellitesTableSortModel',
+        'showGeostationarySatellites',
+        'mapEngine',
+        'mapZoomByEngine'
+    ]
 };
 
 // Persist configuration for the dashboard slice

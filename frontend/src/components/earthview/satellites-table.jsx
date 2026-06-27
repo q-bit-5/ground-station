@@ -35,6 +35,7 @@ import ElevationDisplay from "../common/elevation-display.jsx";
 import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
 import { formatDate as formatDateHelper } from '../../utils/date-time.js';
 import {
+    EARTHVIEW_SATELLITES_DEFAULT_SORT_MODEL,
     setSelectedSatelliteId,
     setSatellitesTableColumnVisibility,
     setSatellitesTablePageSize,
@@ -678,12 +679,7 @@ const SatelliteDetailsTable = React.memo(function SatelliteDetailsTable() {
     }, [dispatch]);
 
     const applyDefaultSort = useCallback(() => {
-        dispatch(setSatellitesTableSortModel([
-            { field: 'visibility', sort: 'desc' },
-            { field: 'elevation', sort: 'desc' },
-            { field: 'status', sort: 'asc' },
-            { field: 'name', sort: 'asc' },
-        ]));
+        dispatch(setSatellitesTableSortModel([...EARTHVIEW_SATELLITES_DEFAULT_SORT_MODEL]));
     }, [dispatch]);
 
     const handleQuickPreset = useCallback((preset) => {

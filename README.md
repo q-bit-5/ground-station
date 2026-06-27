@@ -16,7 +16,7 @@ single web interface.
 * **v0.7.2 (2026-06-22):** Added native Airspy/Airspy HF+ support (**Airspy HF+ currently untested**), grouped SDRs by type with inline edit actions, and updated SDR management docs/UI copy.
 * **v0.7.1 (2026-06-20):** Expanded celestial catalog defaults with major moons for Uranus, Neptune, and Pluto.
 * **v0.7.0 (2026-06-20):** Introduced UHD/USRP discovery integration, improved SoapySDR discovery/task monitoring, and cleaned up hardware management UX.
-* **v0.6.0 (2026-06-16):** Added SQLite concurrent-write retry handling, moved auth/session behavior to cookie-backed flows, and hardened setup/admin-recovery logic.
+* **v0.6.0 (2026-06-16):** Added SQLite concurrent-write retry handling, moved auth/session behavior to cookie-backed flows, introduced the Setup Wizard (with location restore and admin setup), and hardened setup/admin-recovery logic.
 * **v0.5.2 (2026-06-12):** Expanded planetarium/target map capabilities (interactive controls, fullscreen, pass handling), and refreshed docs/features descriptions.
 * **v0.5.1 (2026-06-09):** Added dynamic moon-phase visualization and improved tracker-state restoration/cleanup behavior.
 * **v0.5.0 (2026-06-09):** Delivered major earthview/location workflow updates, including location wizard improvements, callsign metadata, and target/map UX refinements.
