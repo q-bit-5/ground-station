@@ -71,7 +71,7 @@ export const handleSetGridEditableTarget = function (value) {
 };
 
 export const gridLayoutStoreName = 'target-sat-track-layouts';
-const LAYOUT_SCHEMA_VERSION = 3;
+const LAYOUT_SCHEMA_VERSION = 4;
 const SHARED_RESIZE_HANDLES = ['s', 'sw', 'w', 'se', 'nw', 'ne', 'e'];
 const FIXED_ISLAND_HEIGHTS = {
     lg: {'rotator-control': 29, 'rig-control': 29},
@@ -338,58 +338,55 @@ const TrackingLayout = React.memo(function TrackingLayout() {
             "i": "map",
             "x": 0,
             "y": 0,
-            "w": 3,
-            "h": 13,
+            "w": 20,
+            "h": 14,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "info",
-            "x": 3,
+            "x": 40,
             "y": 0,
-            "w": 3,
-            "h": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "passes",
-            "x": 0,
-            "y": 20,
-            "w": 12,
-            "h": 6,
-            "minH": 6,
+            "w": 8,
+            "h": 14,
+            "minH": 7,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "timeline",
             "x": 0,
-            "y": 13,
-            "w": 12,
-            "h": 7,
+            "y": 14,
+            "w": 48,
+            "h": 5,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "passes",
+            "x": 0,
+            "y": 19,
+            "w": 48,
+            "h": 8,
+            "minH": 7,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "rotator-control",
-            "x": 6,
+            "x": 20,
             "y": 0,
-            "w": 3,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
+            "w": 10,
+            "h": 14,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "rig-control",
-            "x": 9,
+            "x": 30,
             "y": 0,
-            "w": 3,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
+            "w": 10,
+            "h": 14,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
@@ -398,15 +395,147 @@ const TrackingLayout = React.memo(function TrackingLayout() {
             "i": "map",
             "x": 0,
             "y": 0,
-            "w": 10,
-            "h": 15,
+            "w": 28,
+            "h": 17,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "info",
-            "x": 6,
-            "y": 15,
+            "x": 28,
+            "y": 0,
+            "w": 12,
+            "h": 17,
+            "minH": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "timeline",
+            "x": 0,
+            "y": 17,
+            "w": 40,
+            "h": 5,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rotator-control",
+            "x": 0,
+            "y": 22,
+            "w": 20,
+            "h": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rig-control",
+            "x": 20,
+            "y": 22,
+            "w": 20,
+            "h": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "passes",
+            "x": 0,
+            "y": 29,
+            "w": 40,
+            "h": 8,
+            "minH": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }],
+        "sm": [{
+            "i": "map",
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 17,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "timeline",
+            "x": 0,
+            "y": 17,
+            "w": 24,
+            "h": 6,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rotator-control",
+            "x": 0,
+            "y": 23,
+            "w": 12,
+            "h": 9,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rig-control",
+            "x": 12,
+            "y": 23,
+            "w": 12,
+            "h": 9,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "passes",
+            "x": 0,
+            "y": 32,
+            "w": 24,
+            "h": 8,
+            "minH": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "info",
+            "x": 0,
+            "y": 40,
+            "w": 24,
+            "h": 12,
+            "minH": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }],
+        "xs": [{
+            "i": "map",
+            "x": 0,
+            "y": 0,
+            "w": 8,
+            "h": 17,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "timeline",
+            "x": 0,
+            "y": 17,
+            "w": 8,
+            "h": 6,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rotator-control",
+            "x": 0,
+            "y": 23,
+            "w": 4,
+            "h": 12,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rig-control",
+            "x": 4,
+            "y": 23,
             "w": 4,
             "h": 12,
             "moved": false,
@@ -416,169 +545,76 @@ const TrackingLayout = React.memo(function TrackingLayout() {
             "i": "passes",
             "x": 0,
             "y": 35,
-            "w": 10,
-            "h": 9,
-            "minH": 6,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "timeline",
-            "x": 0,
-            "y": 28,
-            "w": 10,
-            "h": 7,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "rotator-control",
-            "x": 0,
-            "y": 15,
-            "w": 3,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "rig-control",
-            "x": 3,
-            "y": 15,
-            "w": 3,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }],
-        "sm": [{
-            "i": "map",
-            "x": 0,
-            "y": 0,
-            "w": 6,
-            "h": 15,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "info",
-            "x": 2,
-            "y": 28,
-            "w": 4,
-            "h": 12,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "passes",
-            "x": 0,
-            "y": 60,
-            "w": 6,
-            "h": 9,
-            "minH": 6,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "timeline",
-            "x": 0,
-            "y": 53,
-            "w": 6,
-            "h": 7,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "rotator-control",
-            "x": 0,
-            "y": 15,
-            "w": 3,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "rig-control",
-            "x": 3,
-            "y": 40,
-            "w": 3,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }],
-        "xs": [{
-            "i": "map",
-            "x": 0,
-            "y": 0,
-            "w": 2,
-            "h": 15,
+            "w": 8,
+            "h": 8,
+            "minH": 7,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "info",
             "x": 0,
-            "y": 28,
-            "w": 2,
-            "h": 12,
+            "y": 43,
+            "w": 8,
+            "h": 14,
+            "minH": 7,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "passes",
+        }],
+        "xxs": [{
+            "i": "map",
             "x": 0,
-            "y": 60,
-            "w": 2,
-            "h": 9,
-            "minH": 6,
+            "y": 0,
+            "w": 8,
+            "h": 17,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
         }, {
             "i": "timeline",
             "x": 0,
-            "y": 53,
-            "w": 2,
-            "h": 7,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "rotator-control",
-            "x": 0,
-            "y": 15,
-            "w": 2,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "i": "rig-control",
-            "x": 0,
-            "y": 40,
-            "w": 2,
-            "h": 13,
-            "minH": 13,
-            "maxH": 13,
-            "moved": false,
-            "static": false,
-            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
-        }, {
-            "w": 2,
+            "y": 17,
+            "w": 8,
             "h": 6,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "passes",
             "x": 0,
-            "y": 0,
-            "i": "satselector",
+            "y": 23,
+            "w": 8,
+            "h": 9,
+            "minH": 7,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rotator-control",
+            "x": 0,
+            "y": 32,
+            "w": 4,
+            "h": 13,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "rig-control",
+            "x": 4,
+            "y": 32,
+            "w": 4,
+            "h": 13,
+            "moved": false,
+            "static": false,
+            "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
+        }, {
+            "i": "info",
+            "x": 0,
+            "y": 45,
+            "w": 8,
+            "h": 14,
+            "minH": 7,
             "moved": false,
             "static": false,
             "resizeHandles": ["s", "sw", "w", "se", "nw", "ne", "e"]
