@@ -285,6 +285,13 @@ const PreferencesForm = ({ mode = 'preferences' }) => {
         !isIntegrationsMode && (draft.theme ?? '') !== (savedSnapshot.theme ?? '');
 
     useEffect(() => {
+        // Normalize stale persisted theme values that are no longer available.
+        if (!isIntegrationsMode && draft.theme && !themesOptions.some((option) => option.id === draft.theme)) {
+            setDraft((prev) => ({ ...prev, theme: 'auto' }));
+        }
+    }, [draft.theme, isIntegrationsMode, themesOptions]);
+
+    useEffect(() => {
         const normalized = normalizePreferences(activePreferences, activeKeys);
 
         if (!initialized) {

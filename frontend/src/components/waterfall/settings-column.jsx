@@ -357,6 +357,17 @@ const WaterfallSettings = forwardRef(function WaterfallSettings({ playbackRemain
     }, [centerFrequency, dbRange, fftSize, sampleRate, gain, colorMap, autoDBRange]);
 
     useEffect(() => {
+        // Normalize stale persisted colormap values that are no longer available.
+        if (!colorMaps.some((map) => map.id === colorMap)) {
+            const fallbackColorMap = colorMaps[0]?.id || 'cosmic';
+            setLocalColorMap(fallbackColorMap);
+            if (colorMap !== fallbackColorMap) {
+                dispatch(setColorMap(fallbackColorMap));
+            }
+        }
+    }, [colorMap, colorMaps, dispatch]);
+
+    useEffect(() => {
         // Only run once on mount if selectedSDRId exists and we haven't initialized yet
         if (selectedSDRId && !hasInitializedRef.current) {
             hasInitializedRef.current = true;
