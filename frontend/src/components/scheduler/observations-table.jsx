@@ -89,6 +89,9 @@ const getStatusColor = (status) => {
     }
 };
 
+// Terminal observations should look visually completed in the grid.
+const isTerminalStatus = (status) => ['completed', 'failed', 'cancelled', 'missed'].includes(status);
+
 // Time formatter component that updates every second
 const TimeFormatter = React.memo(function TimeFormatter({ value }) {
     const [, setForceUpdate] = useState(0);
@@ -588,6 +591,7 @@ const ObservationsTable = () => {
                     rows={observations}
                     columns={columns}
                     loading={loading}
+                    getRowClassName={(params) => (isTerminalStatus(params.row?.status) ? 'observation-row-terminal' : '')}
                     checkboxSelection
                     disableRowSelectionExcludeModel
                     rowSelectionModel={rowSelectionModel}
@@ -648,6 +652,12 @@ const ObservationsTable = () => {
                         '& .MuiDataGrid-cell': {
                             display: 'flex',
                             alignItems: 'center',
+                        },
+                        '& .observation-row-terminal .MuiDataGrid-cell': {
+                            textDecoration: 'line-through',
+                            textDecorationThickness: '1px',
+                            textDecorationColor: 'currentColor',
+                            color: 'text.secondary',
                         },
                     }}
                 />
