@@ -71,6 +71,7 @@ const ASSET_BASE_URL = import.meta.env.BASE_URL || '/';
 const NORMALIZED_ASSET_BASE_URL = ASSET_BASE_URL.endsWith('/') ? ASSET_BASE_URL : `${ASSET_BASE_URL}/`;
 const STARFIELD_CATALOG_URL = `${NORMALIZED_ASSET_BASE_URL}assets/astronomy/stars-bright-v1.json`;
 const IMPERIAL_DISTANCE_REGIONS = new Set(['US', 'LR', 'MM']);
+const TARGET_SLOT_BADGE_SCALE = 0.9;
 const DEFAULT_DISPLAY_OPTIONS = {
     showGrid: true,
     showPlanets: true,
@@ -1572,16 +1573,28 @@ const SolarSystemCanvas = ({
 
                 ctx.fillStyle = isDimmed ? hexToRgba(trackedHexColor, 0.28) : trackedHexColor;
                 let markerSize = isSelected ? 8 : 6;
-                const targetBadgeHeight = isSelected ? 17 : 15;
-                const targetLabelRenderFontSize = Math.max(11, Math.round(targetBadgeHeight * 0.68));
+                // Keep the target-slot badge in the Solar System canvas slightly more compact.
+                const targetBadgeHeight = (isSelected ? 17 : 15) * TARGET_SLOT_BADGE_SCALE;
+                const targetBadgeHorizontalPadding = 4 * TARGET_SLOT_BADGE_SCALE;
+                const targetLabelRenderFontSize = Math.max(
+                    Math.round(11 * TARGET_SLOT_BADGE_SCALE),
+                    Math.round(targetBadgeHeight * 0.68)
+                );
                 const targetLabelFontFamily = theme.typography?.fontFamily || 'Arial';
                 if (hasTargetSlotNumber) {
                     ctx.save();
                     ctx.font = `900 ${targetLabelRenderFontSize}px ${targetLabelFontFamily}`;
                     const textWidth = Math.ceil(Math.max(6, ctx.measureText(targetSlotLabel).width));
                     ctx.restore();
-                    const badgeWidth = Math.max(Math.round(targetBadgeHeight * 1.05), textWidth + 8);
-                    markerSize = Math.max(markerSize, badgeWidth + 2, targetBadgeHeight + 2);
+                    const badgeWidth = Math.max(
+                        Math.round(targetBadgeHeight * 1.05),
+                        textWidth + (targetBadgeHorizontalPadding * 2)
+                    );
+                    markerSize = Math.max(
+                        markerSize,
+                        badgeWidth + (2 * TARGET_SLOT_BADGE_SCALE),
+                        targetBadgeHeight + (2 * TARGET_SLOT_BADGE_SCALE)
+                    );
                 }
                 // Keep the classic square marker only for non-slot targets.
                 // When we have a target slot badge (T#), render just the badge itself.
@@ -1597,10 +1610,13 @@ const SolarSystemCanvas = ({
                     ctx.save();
                     ctx.font = `900 ${targetLabelRenderFontSize}px ${targetLabelFontFamily}`;
                     const textWidth = Math.ceil(Math.max(6, ctx.measureText(targetSlotLabel).width));
-                    const badgeWidth = Math.max(Math.round(targetBadgeHeight * 1.05), textWidth + 8);
+                    const badgeWidth = Math.max(
+                        Math.round(targetBadgeHeight * 1.05),
+                        textWidth + (targetBadgeHorizontalPadding * 2)
+                    );
                     const badgeLeft = sx - (badgeWidth / 2);
                     const badgeTop = sy - (targetBadgeHeight / 2);
-                    const badgeRadius = 3;
+                    const badgeRadius = 3 * TARGET_SLOT_BADGE_SCALE;
 
                     // Apply the shared target-slot badge style so Solar System view matches Earthview/Waterfall.
                     ctx.beginPath();
