@@ -1184,9 +1184,6 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend}) => {
                                                         prefix="T"
                                                         size={15}
                                                         sx={{mr: 0.7, verticalAlign: 'middle', position: 'relative', top: -1}}
-                                                        iconColor="common.white"
-                                                        badgeBgColor="warning.main"
-                                                        badgeTextColor="common.black"
                                                     />
                                                 ) : null}
                                                 {marker.name} - {parseInt(marker.altitude)} km, {marker.velocity.toFixed(2)} km/s

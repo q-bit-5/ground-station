@@ -943,9 +943,6 @@ const TargetEarthMapLibreView = ({projection = MAPLIBRE_PROJECTION_MERCATOR, eff
                                         prefix="T"
                                         size={15}
                                         sx={{mr: 0.7, verticalAlign: 'middle', position: 'relative', top: -1}}
-                                        iconColor="common.white"
-                                        badgeBgColor="warning.main"
-                                        badgeTextColor="common.black"
                                     />
                                 ) : null}
                                 {satelliteDetails?.name || '-'} - {altitudeLabel}, {velocityLabel}
