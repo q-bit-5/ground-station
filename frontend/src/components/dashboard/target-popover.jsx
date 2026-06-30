@@ -43,7 +43,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import { formatLegibleDateTime } from "../common/common.jsx";
 import { useUserTimeSettings } from '../../hooks/useUserTimeSettings.jsx';
 import { formatDate as formatDateHelper } from '../../utils/date-time.js';
-import TargetBadge from "../common/target-badge.jsx";
+import TargetNumberIcon from "../common/target-number-icon.jsx";
 import { fetchFleetPassSummaries } from "../target/target-slice.jsx";
 import { useSocket } from "../common/socket.jsx";
 import { normalizeTargetType } from "../target/celestial-target-utils.js";
@@ -912,9 +912,14 @@ const SatelliteInfoPopover = () => {
                                         }}
                                     >
                                         <Stack direction="row" spacing={0.6} alignItems="center" sx={{ mb: 0.6 }}>
-                                            <TargetBadge
+                                            <TargetNumberIcon
                                                 targetNumber={row.targetNumber}
-                                                tracking={row.isTrackingActive}
+                                                prefix="T"
+                                                size={15}
+                                                // Keep tracking state visible while using the shared target-slot badge style.
+                                                variant={row.isTrackingActive ? 'filled' : 'muted'}
+                                                // Match Earth View tooltip badge visual density (tooltip has ~0.9 opacity).
+                                                sx={{ flexShrink: 0, opacity: row.isTrackingActive ? 0.9 : undefined }}
                                             />
                                             <Typography
                                                 variant="body2"
