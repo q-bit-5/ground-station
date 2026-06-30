@@ -1568,36 +1568,61 @@ const SolarSystemCanvas = ({
                 const targetSlotNumber = Number(targetNumberByTargetKey?.[targetKey]);
                 const hasTargetSlotNumber = Number.isFinite(targetSlotNumber) && targetSlotNumber > 0;
                 const targetSlotLabel = hasTargetSlotNumber ? `T${Math.round(targetSlotNumber)}` : '';
+                const targetSlotBadgePalette = theme.palette.badge?.targetSlot || {};
 
                 ctx.fillStyle = isDimmed ? hexToRgba(trackedHexColor, 0.28) : trackedHexColor;
                 let markerSize = isSelected ? 8 : 6;
-                const targetLabelMeasureFontSize = isSelected ? 9 : 8;
-                const targetLabelRenderFontSize = targetLabelMeasureFontSize + 1;
+                const targetBadgeHeight = isSelected ? 17 : 15;
+                const targetLabelRenderFontSize = Math.max(11, Math.round(targetBadgeHeight * 0.68));
+                const targetLabelFontFamily = theme.typography?.fontFamily || 'Arial';
                 if (hasTargetSlotNumber) {
                     ctx.save();
-                    ctx.font = `700 ${targetLabelMeasureFontSize}px monospace`;
+                    ctx.font = `900 ${targetLabelRenderFontSize}px ${targetLabelFontFamily}`;
                     const textWidth = Math.ceil(Math.max(6, ctx.measureText(targetSlotLabel).width));
                     ctx.restore();
-                    markerSize = Math.max(markerSize, textWidth + 6, isSelected ? 17 : 15);
+                    const badgeWidth = Math.max(Math.round(targetBadgeHeight * 1.05), textWidth + 8);
+                    markerSize = Math.max(markerSize, badgeWidth + 2, targetBadgeHeight + 2);
                 }
-                ctx.fillRect(sx - markerSize / 2, sy - markerSize / 2, markerSize, markerSize);
-                if (isSelected) {
-                    ctx.strokeStyle = hexToRgba('#ffffff', theme.palette.mode === 'dark' ? 0.9 : 0.75);
-                    ctx.lineWidth = 1.25;
-                    ctx.strokeRect(sx - markerSize / 2 - 1, sy - markerSize / 2 - 1, markerSize + 2, markerSize + 2);
+                // Keep the classic square marker only for non-slot targets.
+                // When we have a target slot badge (T#), render just the badge itself.
+                if (!hasTargetSlotNumber) {
+                    ctx.fillRect(sx - markerSize / 2, sy - markerSize / 2, markerSize, markerSize);
+                    if (isSelected) {
+                        ctx.strokeStyle = hexToRgba('#ffffff', theme.palette.mode === 'dark' ? 0.9 : 0.75);
+                        ctx.lineWidth = 1.25;
+                        ctx.strokeRect(sx - markerSize / 2 - 1, sy - markerSize / 2 - 1, markerSize + 2, markerSize + 2);
+                    }
                 }
                 if (hasTargetSlotNumber) {
                     ctx.save();
-                    ctx.font = `700 ${targetLabelRenderFontSize}px monospace`;
+                    ctx.font = `900 ${targetLabelRenderFontSize}px ${targetLabelFontFamily}`;
+                    const textWidth = Math.ceil(Math.max(6, ctx.measureText(targetSlotLabel).width));
+                    const badgeWidth = Math.max(Math.round(targetBadgeHeight * 1.05), textWidth + 8);
+                    const badgeLeft = sx - (badgeWidth / 2);
+                    const badgeTop = sy - (targetBadgeHeight / 2);
+                    const badgeRadius = 3;
+
+                    // Apply the shared target-slot badge style so Solar System view matches Earthview/Waterfall.
+                    ctx.beginPath();
+                    ctx.roundRect(
+                        badgeLeft,
+                        badgeTop,
+                        badgeWidth,
+                        targetBadgeHeight,
+                        badgeRadius
+                    );
+                    ctx.fillStyle = targetSlotBadgePalette.background || theme.palette.warning.main;
+                    ctx.globalAlpha = isDimmed ? 0.7 : 1.0;
+                    ctx.shadowColor = targetSlotBadgePalette.shadow || 'rgba(0, 0, 0, 0.2)';
+                    ctx.shadowBlur = 3;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 1;
+                    ctx.fill();
+
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.lineJoin = 'round';
-                    ctx.lineWidth = isSelected ? 2.4 : 2;
-                    ctx.strokeStyle = hexToRgba('#000000', isDimmed ? 0.92 : 0.98);
-                    ctx.shadowColor = hexToRgba('#000000', isDimmed ? 0.3 : 0.38);
-                    ctx.shadowBlur = 0.7;
-                    ctx.strokeText(targetSlotLabel, sx, sy + 0.35);
-                    ctx.fillStyle = hexToRgba(theme.palette.common.white, isDimmed ? 0.95 : 1);
+                    ctx.fillStyle = targetSlotBadgePalette.text || theme.palette.common.black;
+                    ctx.globalAlpha = isDimmed ? 0.9 : 1.0;
                     ctx.fillText(targetSlotLabel, sx, sy + 0.35);
                     ctx.restore();
                 }
