@@ -972,6 +972,50 @@ const SolarSystemCanvas = ({
                 .map((body) => String(body?.id || '').trim().toLowerCase())
                 .filter(Boolean),
         );
+        const normalizeSolarBodyId = (value) => String(value || '').trim().toLowerCase();
+        const targetSlotNumberByBodyId = new Map();
+        const registerTargetSlotNumberForBodyId = (bodyIdValue, slotNumberValue) => {
+            const bodyId = normalizeSolarBodyId(bodyIdValue);
+            const slotNumber = Number(slotNumberValue);
+            if (!bodyId || !solarBodyIds.has(bodyId)) return;
+            if (!Number.isFinite(slotNumber) || slotNumber <= 0) return;
+            const existing = targetSlotNumberByBodyId.get(bodyId);
+            if (!Number.isFinite(existing) || slotNumber < existing) {
+                targetSlotNumberByBodyId.set(bodyId, slotNumber);
+            }
+        };
+        const targetSlotEntries = Object.entries(targetNumberByTargetKey || {});
+        targetSlotEntries.forEach(([targetKey, slotNumber]) => {
+            const normalizedTargetKey = String(targetKey || '').trim();
+            if (normalizedTargetKey.startsWith('body:')) {
+                registerTargetSlotNumberForBodyId(normalizedTargetKey.slice('body:'.length), slotNumber);
+            }
+        });
+        (Array.isArray(tracked) ? tracked : []).forEach((body) => {
+            const targetKey = resolveTargetKey(body);
+            const slotNumber = Number(targetNumberByTargetKey?.[targetKey]);
+            if (!Number.isFinite(slotNumber) || slotNumber <= 0) return;
+            registerTargetSlotNumberForBodyId(body?.body_id, slotNumber);
+            registerTargetSlotNumberForBodyId(body?.command, slotNumber);
+            registerTargetSlotNumberForBodyId(body?.name, slotNumber);
+        });
+        const resolveTargetSlotNumber = (body, targetKey) => {
+            const directSlotNumber = Number(targetNumberByTargetKey?.[targetKey]);
+            if (Number.isFinite(directSlotNumber) && directSlotNumber > 0) return directSlotNumber;
+            const normalizedTargetKey = String(targetKey || '').trim();
+            if (normalizedTargetKey.startsWith('body:')) {
+                const bodyIdFromKey = normalizeSolarBodyId(normalizedTargetKey.slice('body:'.length));
+                const mappedSlotNumber = Number(targetSlotNumberByBodyId.get(bodyIdFromKey));
+                if (Number.isFinite(mappedSlotNumber) && mappedSlotNumber > 0) return mappedSlotNumber;
+            }
+            const mappedBodySlot = Number(targetSlotNumberByBodyId.get(normalizeSolarBodyId(body?.body_id)));
+            if (Number.isFinite(mappedBodySlot) && mappedBodySlot > 0) return mappedBodySlot;
+            const mappedCommandSlot = Number(targetSlotNumberByBodyId.get(normalizeSolarBodyId(body?.command)));
+            if (Number.isFinite(mappedCommandSlot) && mappedCommandSlot > 0) return mappedCommandSlot;
+            const mappedNameSlot = Number(targetSlotNumberByBodyId.get(normalizeSolarBodyId(body?.name)));
+            if (Number.isFinite(mappedNameSlot) && mappedNameSlot > 0) return mappedNameSlot;
+            return NaN;
+        };
         const shouldHideTrackedLabelAsDuplicate = (body) => {
             const bodyId = String(body?.body_id || '').trim().toLowerCase();
             if (bodyId && solarBodyIds.has(bodyId)) return true;
@@ -1471,7 +1515,10 @@ const SolarSystemCanvas = ({
                     // Keep the Sun label clear of the larger center icon.
                     const labelAnchorX = id === 'sun' ? sx + 12 : sx;
                     const bodyTargetKey = `body:${id}`;
-                    const bodyTargetSlotNumber = Number(targetNumberByTargetKey?.[bodyTargetKey]);
+                    const bodyTargetSlotNumber = resolveTargetSlotNumber(
+                        { body_id: id, command: id, name: planet?.name || id },
+                        bodyTargetKey
+                    );
                     const hasBodyTargetSlotNumber = Number.isFinite(bodyTargetSlotNumber) && bodyTargetSlotNumber > 0;
                     let labelOptions;
                     if (hasBodyTargetSlotNumber) {
@@ -1601,7 +1648,7 @@ const SolarSystemCanvas = ({
                 const isSelected = hasTrackedSelection && selectedTargetKeySet.has(targetKey);
                 const isDimmed = hasTrackedSelection && !isSelected;
                 const trackedHexColor = resolveTrackedColor(body, body.stale ? '#EF476F' : '#06D6A0');
-                const targetSlotNumber = Number(targetNumberByTargetKey?.[targetKey]);
+                const targetSlotNumber = resolveTargetSlotNumber(body, targetKey);
                 const hasTargetSlotNumber = Number.isFinite(targetSlotNumber) && targetSlotNumber > 0;
                 const targetSlotLabel = hasTargetSlotNumber ? `T${Math.round(targetSlotNumber)}` : '';
                 const targetSlotBadgePalette = theme.palette.badge?.targetSlot || {};
