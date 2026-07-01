@@ -1030,7 +1030,6 @@ const SolarSystemCanvas = ({
         const LABEL_FONT = '11px monospace';
         const LABEL_LINE_HEIGHT = 10;
         const LABEL_ROW_STEP = 8;
-        const LABEL_INDENT_STEP = 6;
         const LABEL_PADDING = 1;
 
         const boxesOverlap = (a, b) => !(
@@ -1052,7 +1051,7 @@ const SolarSystemCanvas = ({
             const maxRows = 10;
             for (let row = 0; row <= maxRows; row += 1) {
                 const y = baseY + row * LABEL_ROW_STEP;
-                const x = row > 0 ? baseX + LABEL_INDENT_STEP : baseX;
+                const x = baseX;
                 const box = {
                     x: x - LABEL_PADDING,
                     y: y - LABEL_PADDING,
@@ -1065,7 +1064,7 @@ const SolarSystemCanvas = ({
             }
 
             const y = baseY + maxRows * LABEL_ROW_STEP;
-            const x = maxRows > 0 ? baseX + LABEL_INDENT_STEP : baseX;
+            const x = baseX;
             return {
                 x,
                 y,
