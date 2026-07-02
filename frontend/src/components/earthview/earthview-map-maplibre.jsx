@@ -1154,8 +1154,11 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend, onSatelliteMa
                                                 boxShadow: marker.isTracked
                                                     ? `0 0 0 1px ${theme.palette.error.main}`
                                                     : '0 0 0 1px rgba(0,0,0,0.45)',
+                                                userSelect: 'none',
+                                                WebkitUserSelect: 'none',
                                             }}
                                             onContextMenu={handleMarkerContextMenu}
+                                            onTouchStart={(e) => e.preventDefault()}
                                         />
                                     ) : (
                                         <div
@@ -1166,8 +1169,11 @@ const MapLibreEarthViewMapRenderer = ({handleSetTrackingOnBackend, onSatelliteMa
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 cursor: 'pointer',
+                                                userSelect: 'none',
+                                                WebkitUserSelect: 'none',
                                             }}
                                             onContextMenu={handleMarkerContextMenu}
+                                            onTouchStart={(e) => e.preventDefault()}
                                         >
                                             <div
                                                 style={{
