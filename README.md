@@ -99,7 +99,7 @@ single web interface.
 ---
 
 ### SDR Hardware Management
-<img src="frontend/public/ground station - sdr management page - soapysdr probing.png" alt="SDR device management" width="450"/>
+<img src="frontend/public/ground station - sdr page - index.png" alt="SDR page index" width="450"/>
 
 *Comprehensive SDR device management interface supporting RTL-SDR, SoapySDR, and UHD/USRP radios with remote capability*
 
