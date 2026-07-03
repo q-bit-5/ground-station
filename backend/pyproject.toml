@@ -79,8 +79,8 @@ dependencies = [
     "pydantic_core>=2.27.2",
     "PyJWT>=2.13.0",
     "pyrtlsdr>=0.3.0",
-    "python-engineio>=4.11.2",
-    "python-socketio>=5.12.1",
+    "python-engineio>=4.13.2",
+    "python-socketio>=5.16.2",
     "reedsolo>=1.7.0",
     "PyYAML>=6.0.2",
     "requests>=2.32.3",
@@ -103,7 +103,7 @@ dependencies = [
     "websockets>=14.0",
     "wsproto>=1.2.0",
     "yarl>=1.20.0",
-    "zeroconf>=0.149.12",
+    "zeroconf>=0.149.16",
 ]
 
 # Optional dependency groups
