@@ -431,7 +431,6 @@ Dedicated worker processes provide IQ acquisition, FFT processing, and demodulat
 *   **Airspy / Airspy HF+** native worker support (**Airspy HF+ currently untested**)
 *   **SoapySDR** devices locally or through SoapyRemote: RTL-SDR, Airspy, HackRF, HydraSDR, LimeSDR, PlutoSDR, UHD/USRP, and SDRplay (RSP series)
 *   **UHD/USRP** radios via a UHD worker
-*   **GNSS-SDR** integration for GNSS decoding workflows (requires `gnss-sdr` available in `PATH`)
 *   **Need another SoapySDR device?** Open a GitHub issue and request support.
 
 The SDR architecture uses a pub/sub pattern (IQ Broadcaster) to separate IQ acquisition from signal processing:
