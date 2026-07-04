@@ -1,8 +1,11 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { WaterfallStatusBarPaper } from '../common/common.jsx';
 
 const CelestialStatusBar = ({ planetsCount = 0, moonsCount = 0, trackedCount = 0 }) => {
+    const { t } = useTranslation('celestial');
+
     return (
         <WaterfallStatusBarPaper>
             <Box
@@ -16,11 +19,11 @@ const CelestialStatusBar = ({ planetsCount = 0, moonsCount = 0, trackedCount = 0
                     width: '100%',
                 }}
             >
-                <Box component="span">Planets: <Box component="span" sx={{ fontWeight: 500 }}>{planetsCount}</Box></Box>
+                <Box component="span">{t('statusbar.planets')}: <Box component="span" sx={{ fontWeight: 500 }}>{planetsCount}</Box></Box>
                 <Box component="span" sx={{ opacity: 0.6 }}>|</Box>
-                <Box component="span">Moons: <Box component="span" sx={{ fontWeight: 500 }}>{moonsCount}</Box></Box>
+                <Box component="span">{t('statusbar.moons')}: <Box component="span" sx={{ fontWeight: 500 }}>{moonsCount}</Box></Box>
                 <Box component="span" sx={{ opacity: 0.6 }}>|</Box>
-                <Box component="span">Tracked: <Box component="span" sx={{ fontWeight: 500 }}>{trackedCount}</Box></Box>
+                <Box component="span">{t('statusbar.tracked')}: <Box component="span" sx={{ fontWeight: 500 }}>{trackedCount}</Box></Box>
             </Box>
         </WaterfallStatusBarPaper>
     );

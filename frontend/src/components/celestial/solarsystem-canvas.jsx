@@ -535,7 +535,7 @@ const SolarSystemCanvas = ({
     displayOptions = DEFAULT_DISPLAY_OPTIONS,
 }) => {
     const theme = useTheme();
-    const { i18n } = useTranslation();
+    const { i18n, t } = useTranslation('celestial');
     const { locale } = useUserTimeSettings();
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
@@ -1851,7 +1851,7 @@ const SolarSystemCanvas = ({
 
         const offscreenAnchors = [];
         offscreenAnchors.push({
-            label: 'Sun',
+            label: t('canvas.solar.anchor_sun'),
             color: '#f9c74f',
             x: cx,
             y: cy,
@@ -1865,7 +1865,7 @@ const SolarSystemCanvas = ({
             const earthWorldXAu = Number(earthPlanet.position_xyz_au[0]);
             const earthWorldYAu = Number(earthPlanet.position_xyz_au[1]);
             offscreenAnchors.push({
-                label: 'Earth',
+                label: t('canvas.solar.anchor_earth'),
                 color: PLANET_COLORS.earth,
                 x: earthX,
                 y: earthY,
@@ -1877,7 +1877,9 @@ const SolarSystemCanvas = ({
         const galacticCenterDirectionY = -Math.sin(galacticCenterLongitudeRad);
         // Galactic Center is a sky direction, so keep it fixed to the starfield projection.
         offscreenAnchors.push({
-            label: width < 300 ? 'Galactic Ctr' : 'Galactic Center',
+            label: width < 300
+                ? t('canvas.solar.anchor_galactic_center_short')
+                : t('canvas.solar.anchor_galactic_center'),
             color: theme.palette.mode === 'dark' ? GALACTIC_CENTER_COLOR_DARK : GALACTIC_CENTER_COLOR_LIGHT,
             x: width / 2 + galacticCenterDirectionX * GALACTIC_CENTER_DIRECTION_DISTANCE_PX,
             y: height / 2 + galacticCenterDirectionY * GALACTIC_CENTER_DIRECTION_DISTANCE_PX,
@@ -1945,6 +1947,7 @@ const SolarSystemCanvas = ({
         theme.palette.text.primary,
         theme.palette.text.secondary,
         formatDistanceLabel,
+        t,
         viewport.panX,
         viewport.panY,
         viewport.zoom,
@@ -2279,19 +2282,47 @@ const SolarSystemCanvas = ({
     };
 
     const timestampText = useMemo(() => {
-        if (!scene?.timestamp_utc) return 'No epoch';
-        return `Epoch: ${scene.timestamp_utc}`;
-    }, [scene?.timestamp_utc]);
+        if (!scene?.timestamp_utc) return t('canvas.solar.no_epoch');
+        return t('canvas.solar.epoch', { timestamp: scene.timestamp_utc });
+    }, [scene?.timestamp_utc, t]);
 
     const scaleIndicator = useMemo(() => {
         const zoom = viewport.zoom;
         const gridStepAu = zoom > 80 ? 0.5 : zoom > 30 ? 1 : zoom > 12 ? 2 : 5;
         const pixels = gridStepAu * zoom;
         return {
-            label: `Scale: ${formatAu(gridStepAu)} / square`,
+            label: t('canvas.solar.scale', { value: formatAu(gridStepAu) }),
             barWidthPx: clamp(pixels, 40, 180),
         };
-    }, [viewport.zoom]);
+    }, [viewport.zoom, t]);
+    const gestureHintText = useMemo(() => {
+        if (!isDragInteractionEnabled && !isZoomInteractionEnabled) {
+            return t('canvas.solar.gesture_disabled');
+        }
+
+        let touchLabel = '';
+        if (isDragInteractionEnabled && isZoomInteractionEnabled) {
+            touchLabel = t('canvas.solar.touch_pan_zoom');
+        } else if (isDragInteractionEnabled) {
+            touchLabel = t('canvas.solar.touch_pan');
+        } else if (isZoomInteractionEnabled) {
+            touchLabel = t('canvas.solar.touch_pinch_zoom');
+        }
+
+        let mouseLabel = '';
+        if (isDragInteractionEnabled && isZoomInteractionEnabled) {
+            mouseLabel = t('canvas.solar.mouse_drag_plus_wheel');
+        } else if (isDragInteractionEnabled) {
+            mouseLabel = t('canvas.solar.mouse_drag');
+        } else if (isZoomInteractionEnabled) {
+            mouseLabel = t('canvas.solar.mouse_wheel');
+        }
+
+        return t('canvas.solar.gesture_hint', {
+            touch: touchLabel,
+            mouse: mouseLabel,
+        });
+    }, [isDragInteractionEnabled, isZoomInteractionEnabled, t]);
 
     return (
         <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -2349,9 +2380,7 @@ const SolarSystemCanvas = ({
                     }}
                 >
                     <Typography variant="caption" sx={{ fontFamily: 'inherit', lineHeight: 1.1 }}>
-                        {(isDragInteractionEnabled || isZoomInteractionEnabled)
-                            ? `Touch: ${isDragInteractionEnabled ? '2-finger pan' : ''}${isDragInteractionEnabled && isZoomInteractionEnabled ? '/zoom' : ''}${!isDragInteractionEnabled && isZoomInteractionEnabled ? 'pinch zoom' : ''} | Mouse: ${isDragInteractionEnabled ? 'drag' : ''}${isDragInteractionEnabled && isZoomInteractionEnabled ? ' + ' : ''}${isZoomInteractionEnabled ? 'wheel' : ''}`
-                            : 'Map gestures disabled; use toolbar controls.'}
+                        {gestureHintText}
                     </Typography>
                 </Box>
             ) : null}

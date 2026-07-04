@@ -266,7 +266,7 @@ const defaultLayouts = {
 };
 
 const CelestialMainLayout = () => {
-    const { t } = useTranslation('earthview');
+    const { t: tCelestial } = useTranslation('celestial');
     const dispatch = useDispatch();
     const { socket } = useSocket();
     const isEditing = useSelector((state) => state.dashboard?.isEditing);
@@ -482,13 +482,13 @@ const CelestialMainLayout = () => {
         if (Number.isFinite(current) && Number.isFinite(total) && total > 0) {
             return `${Math.max(0, Math.min(current, total))}/${total}`;
         }
-        return 'Loading...';
-    }, [tracksLoading, tracksProgress?.current, tracksProgress?.total]);
+        return tCelestial('main_layout.loading');
+    }, [tracksLoading, tracksProgress?.current, tracksProgress?.total, tCelestial]);
     const solarToolbarLoadingText = React.useMemo(() => {
         if (!solarSystemLoading || viewMode !== VIEW_MODE_SOLAR_SYSTEM) return '';
         if (tracksLoading) return tracksProgressText;
-        return 'Loading...';
-    }, [solarSystemLoading, tracksLoading, tracksProgressText, viewMode]);
+        return tCelestial('main_layout.loading');
+    }, [solarSystemLoading, tracksLoading, tracksProgressText, viewMode, tCelestial]);
 
     const updateProjectionSetting = React.useCallback((updates) => {
         if (!socket) return;
@@ -548,10 +548,10 @@ const CelestialMainLayout = () => {
                 >
                     <Box component="span">
                         {viewMode === VIEW_MODE_PLANETARIUM
-                            ? t('celestial.planetarium_title', { defaultValue: 'Planetarium' })
-                            : t('celestial.solar_system_layout_title', { defaultValue: 'Solar System Layout' })}
+                            ? tCelestial('main_layout.planetarium_title')
+                            : tCelestial('main_layout.solar_system_layout_title')}
                     </Box>
-                    <Tooltip title="Layout options">
+                    <Tooltip title={tCelestial('toolbar.layout_options')}>
                         <span>
                             <IconButton
                                 size="small"
@@ -576,8 +576,8 @@ const CelestialMainLayout = () => {
                         disabled={!socket}
                         onToggleFullscreen={handleToggleSolarSystemFullscreen}
                         fullscreen={solarSystemFullscreen}
-                        fullscreenLabel={t('map_controls.go_fullscreen', { defaultValue: 'Go fullscreen' })}
-                        exitFullscreenLabel={t('map_controls.exit_fullscreen', { defaultValue: 'Exit fullscreen' })}
+                        fullscreenLabel={tCelestial('toolbar.go_fullscreen')}
+                        exitFullscreenLabel={tCelestial('toolbar.exit_fullscreen')}
                         showZoomButtons={!interactionSettings.enableMapZooming}
                     />
                 ) : null}
@@ -635,8 +635,8 @@ const CelestialMainLayout = () => {
                                     <CircularProgress size={34} />
                                     <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
                                         {viewMode === VIEW_MODE_PLANETARIUM
-                                            ? 'Loading planetarium vectors...'
-                                            : 'Loading solar system vectors...'}
+                                            ? tCelestial('main_layout.loading_planetarium_vectors')
+                                            : tCelestial('main_layout.loading_solar_vectors')}
                                     </Typography>
                                 </Box>
                             ) : null}
@@ -666,7 +666,7 @@ const CelestialMainLayout = () => {
                                         color="text.secondary"
                                         sx={{ fontFamily: 'monospace', lineHeight: 1 }}
                                     >
-                                        Updating...
+                                        {tCelestial('main_layout.updating')}
                                     </Typography>
                                 </Box>
                             ) : null}
@@ -687,9 +687,9 @@ const CelestialMainLayout = () => {
                     sx={{ ...islandTitleBarSx, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
                     <Box component="span">
-                        {t('celestial.monitored_title', { defaultValue: 'Monitored Celestial' })}
+                        {tCelestial('main_layout.monitored_title')}
                     </Box>
-                    <Tooltip title="Table settings">
+                    <Tooltip title={tCelestial('toolbar.table_settings')}>
                         <span>
                             <IconButton
                                 size="small"

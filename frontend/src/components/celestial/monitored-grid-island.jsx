@@ -145,23 +145,23 @@ const formatNumericUpTo = (value, maxDigits = 3) => {
         .replace(/\.?0+$/, '');
 };
 
-const formatLastRefresh = (value, timezone, locale) => {
-    if (!value) return 'Never';
+const formatLastRefresh = (value, timezone, locale, t) => {
+    if (!value) return t('common.never');
     const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return 'Unknown';
+    if (Number.isNaN(parsed.getTime())) return t('common.unknown');
     const options = timezone ? { timeZone: timezone } : undefined;
     return parsed.toLocaleString(locale, options);
 };
 
-const formatAge = (value, nowMs) => {
-    if (!value) return 'Never';
+const formatAge = (value, nowMs, t) => {
+    if (!value) return t('common.never');
     const parsed = new Date(value).getTime();
-    if (!Number.isFinite(parsed)) return 'Unknown';
+    if (!Number.isFinite(parsed)) return t('common.unknown');
     const diffSec = Math.max(0, Math.floor((nowMs - parsed) / 1000));
-    if (diffSec < 60) return `${diffSec}s`;
-    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
-    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
-    return `${Math.floor(diffSec / 86400)}d`;
+    if (diffSec < 60) return t('time.age.seconds', { count: diffSec });
+    if (diffSec < 3600) return t('time.age.minutes', { count: Math.floor(diffSec / 60) });
+    if (diffSec < 86400) return t('time.age.hours', { count: Math.floor(diffSec / 3600) });
+    return t('time.age.days', { count: Math.floor(diffSec / 86400) });
 };
 
 const magnitude3 = (vector) => {
@@ -171,14 +171,14 @@ const magnitude3 = (vector) => {
     return Math.sqrt(x * x + y * y + z * z);
 };
 
-const computeProjectionSpan = (orbitSampling) => {
+const computeProjectionSpan = (orbitSampling, t) => {
     const past = Number(orbitSampling?.past_hours);
     const future = Number(orbitSampling?.future_hours);
     const step = Number(orbitSampling?.step_minutes);
     if (!Number.isFinite(past) || !Number.isFinite(future) || !Number.isFinite(step)) {
         return '-';
     }
-    return `${past}h / ${future}h @ ${step}m`;
+    return t('time.projection_span', { past, future, step });
 };
 
 const getVisibilityState = (visible, elevationDeg) => {
@@ -214,6 +214,7 @@ const buildTrackingTargetKey = (trackingState = {}) => {
 
 const SettingsDialog = ({ open, onClose }) => {
     const dispatch = useDispatch();
+    const { t } = useTranslation('celestial');
     const columnVisibility = useSelector((state) => state.celestialMonitored.tableColumnVisibility);
     const tablePageSize = useSelector((state) => state.celestialMonitored.tablePageSize);
     const handleResetValues = useCallback(() => {
@@ -223,30 +224,30 @@ const SettingsDialog = ({ open, onClose }) => {
     }, [dispatch]);
 
     const columns = [
-        { name: 'displayName', label: 'Name', category: 'identity', alwaysVisible: true },
-        { name: 'targetType', label: 'Type', category: 'identity' },
-        { name: 'command', label: 'Target ID', category: 'identity' },
-        { name: 'source', label: 'Source', category: 'identity' },
-        { name: 'sourceMode', label: 'Source Mode', category: 'identity' },
-        { name: 'elevationDeg', label: 'Elevation (deg)', category: 'state' },
-        { name: 'azimuthDeg', label: 'Azimuth (deg)', category: 'state' },
-        { name: 'distanceFromSunAu', label: 'Distance from Sun (AU)', category: 'metrics' },
-        { name: 'speedKmS', label: 'Speed (km/s)', category: 'metrics' },
-        { name: 'lightTimeMinutes', label: 'Light Time (min)', category: 'metrics' },
-        { name: 'lastRefreshAt', label: 'Last Refresh', category: 'state' },
-        { name: 'lastRefreshAge', label: 'Refresh Age', category: 'state' },
-        { name: 'projectionSpan', label: 'Projection Span', category: 'projection' },
-        { name: 'cacheStatus', label: 'Cache', category: 'projection' },
-        { name: 'stale', label: 'Stale', category: 'projection' },
-        { name: 'sampleCount', label: 'Samples', category: 'projection' },
-        { name: 'lastError', label: 'Last Error', category: 'state' },
+        { name: 'displayName', label: t('monitored.columns.name'), category: 'identity', alwaysVisible: true },
+        { name: 'targetType', label: t('monitored.columns.type'), category: 'identity' },
+        { name: 'command', label: t('monitored.columns.target_id'), category: 'identity' },
+        { name: 'source', label: t('monitored.columns.source'), category: 'identity' },
+        { name: 'sourceMode', label: t('monitored.columns.source_mode'), category: 'identity' },
+        { name: 'elevationDeg', label: t('monitored.columns.elevation'), category: 'state' },
+        { name: 'azimuthDeg', label: t('monitored.columns.azimuth'), category: 'state' },
+        { name: 'distanceFromSunAu', label: t('monitored.columns.distance_from_sun_au'), category: 'metrics' },
+        { name: 'speedKmS', label: t('monitored.columns.speed_km_s'), category: 'metrics' },
+        { name: 'lightTimeMinutes', label: t('monitored.columns.light_time_min'), category: 'metrics' },
+        { name: 'lastRefreshAt', label: t('monitored.columns.last_refresh'), category: 'state' },
+        { name: 'lastRefreshAge', label: t('monitored.columns.refresh_age'), category: 'state' },
+        { name: 'projectionSpan', label: t('monitored.columns.projection_span'), category: 'projection' },
+        { name: 'cacheStatus', label: t('monitored.columns.cache'), category: 'projection' },
+        { name: 'stale', label: t('monitored.columns.stale'), category: 'projection' },
+        { name: 'sampleCount', label: t('monitored.columns.samples'), category: 'projection' },
+        { name: 'lastError', label: t('monitored.columns.last_error'), category: 'state' },
     ];
 
     const categories = {
-        identity: 'Identity',
-        state: 'State',
-        metrics: 'Metrics',
-        projection: 'Projection',
+        identity: t('monitored.settings.categories.identity'),
+        state: t('monitored.settings.categories.state'),
+        metrics: t('monitored.settings.categories.metrics'),
+        projection: t('monitored.settings.categories.projection'),
     };
 
     const columnsByCategory = {
@@ -258,15 +259,15 @@ const SettingsDialog = ({ open, onClose }) => {
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: DIALOG_PAPER_SX }}>
-            <DialogTitle sx={DIALOG_TITLE_SX}>Monitored Celestial Table Settings</DialogTitle>
+            <DialogTitle sx={DIALOG_TITLE_SX}>{t('monitored.settings.title')}</DialogTitle>
             <DialogContent sx={DIALOG_CONTENT_SX}>
                 <Box sx={{ mb: 2 }}>
                     <FormControl fullWidth size="small" sx={{ mt: 2 }}>
-                        <InputLabel id="celestial-table-rows-label">Rows per page</InputLabel>
+                        <InputLabel id="celestial-table-rows-label">{t('monitored.settings.rows_per_page')}</InputLabel>
                         <Select
                             labelId="celestial-table-rows-label"
                             value={tablePageSize}
-                            label="Rows per page"
+                            label={t('monitored.settings.rows_per_page')}
                             onChange={(event) => dispatch(setMonitoredTablePageSize(event.target.value))}
                         >
                             {[5, 10, 15, 20, 25].map((option) => (
@@ -312,10 +313,10 @@ const SettingsDialog = ({ open, onClose }) => {
             </DialogContent>
             <DialogActions sx={DIALOG_ACTIONS_SX}>
                 <Button onClick={handleResetValues} variant="outlined" color="warning">
-                    Reset Values
+                    {t('monitored.settings.reset_values')}
                 </Button>
                 <Button onClick={onClose} variant="outlined" sx={DIALOG_CANCEL_BUTTON_SX}>
-                    Close
+                    {t('monitored.settings.close')}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -330,6 +331,7 @@ const MonitoredCelestialGridIsland = ({
     targetNumberByTargetKey = {},
 }) => {
     const { t } = useTranslation('earthview');
+    const { t: tCelestial } = useTranslation('celestial');
     const { t: tSat } = useTranslation('satellites');
     const { socket } = useSocket();
     const dispatch = useDispatch();
@@ -406,14 +408,14 @@ const MonitoredCelestialGridIsland = ({
                     distanceFromSunAu: distanceAu,
                     speedKmS,
                     lightTimeMinutes: lightTimeMin,
-                    lastRefreshAge: formatAge(row.lastRefreshAt, nowMs),
-                    projectionSpan: computeProjectionSpan(track.orbit_sampling),
+                    lastRefreshAge: formatAge(row.lastRefreshAt, nowMs, tCelestial),
+                    projectionSpan: computeProjectionSpan(track.orbit_sampling, tCelestial),
                     cacheStatus: track.cache || '-',
-                    stale: track.stale ? 'Yes' : 'No',
+                    stale: track.stale ? tCelestial('common.yes') : tCelestial('common.no'),
                     sampleCount,
                 };
             }),
-        [rows, trackByTargetKey, nowMs],
+        [rows, trackByTargetKey, nowMs, tCelestial],
     );
     const applyTargetSelection = useCallback((rawId) => {
         if (rawId == null) return;
@@ -429,7 +431,7 @@ const MonitoredCelestialGridIsland = ({
         () => [
             {
                 field: 'displayName',
-                headerName: 'Name',
+                headerName: tCelestial('monitored.columns.name'),
                 minWidth: 170,
                 flex: 1,
                 renderCell: (params) => (
@@ -472,7 +474,7 @@ const MonitoredCelestialGridIsland = ({
                                         bgcolor: swatchColor,
                                         flexShrink: 0,
                                     }}
-                                    title={valid ? value.toUpperCase() : 'No color'}
+                                    title={valid ? value.toUpperCase() : tCelestial('monitored.no_color')}
                                 />
                             );
                         })()}
@@ -495,25 +497,27 @@ const MonitoredCelestialGridIsland = ({
             },
             {
                 field: 'targetType',
-                headerName: 'Type',
+                headerName: tCelestial('monitored.columns.type'),
                 minWidth: 95,
-                valueGetter: (value) => (String(value || '').toLowerCase() === 'body' ? 'Body' : 'Mission'),
+                valueGetter: (value) => (
+                    String(value || '').toLowerCase() === 'body' ? tCelestial('common.body') : tCelestial('common.mission')
+                ),
             },
             {
                 field: 'command',
-                headerName: 'Target ID',
+                headerName: tCelestial('monitored.columns.target_id'),
                 minWidth: 170,
                 flex: 1,
                 valueGetter: (value, row) =>
                     String(row?.targetType || '').toLowerCase() === 'body' ? (row?.bodyId || value) : value,
             },
-            { field: 'source', headerName: 'Source', minWidth: 110, flex: 0.7 },
-            { field: 'sourceMode', headerName: 'Source Mode', minWidth: 120, flex: 0.8 },
+            { field: 'source', headerName: tCelestial('monitored.columns.source'), minWidth: 110, flex: 0.7 },
+            { field: 'sourceMode', headerName: tCelestial('monitored.columns.source_mode'), minWidth: 120, flex: 0.8 },
             {
                 field: 'elevationDeg',
                 width: 80,
                 minWidth: 80,
-                headerName: 'Elevation (deg)',
+                headerName: tCelestial('monitored.columns.elevation'),
                 type: 'number',
                 align: 'center',
                 headerAlign: 'center',
@@ -523,52 +527,52 @@ const MonitoredCelestialGridIsland = ({
                 field: 'azimuthDeg',
                 width: 90,
                 minWidth: 90,
-                headerName: 'Azimuth (deg)',
+                headerName: tCelestial('monitored.columns.azimuth'),
                 align: 'center',
                 headerAlign: 'center',
                 valueGetter: (value) => formatAngle(value, 2),
             },
             {
                 field: 'distanceFromSunAu',
-                headerName: 'Distance from Sun (AU)',
+                headerName: tCelestial('monitored.columns.distance_from_sun_au'),
                 width: 90,
                 minWidth: 90,
                 valueGetter: (value) => formatNumericUpTo(value, 3),
             },
             {
                 field: 'speedKmS',
-                headerName: 'Speed (km/s)',
+                headerName: tCelestial('monitored.columns.speed_km_s'),
                 width: 90,
                 minWidth: 90,
                 valueGetter: (value) => formatNumeric(value, 3),
             },
             {
                 field: 'lightTimeMinutes',
-                headerName: 'Light Time (min)',
+                headerName: tCelestial('monitored.columns.light_time_min'),
                 width: 90,
                 minWidth: 90,
                 valueGetter: (value) => formatNumeric(value, 2),
             },
-            { field: 'lastRefreshAge', headerName: 'Refresh Age', width: 70, minWidth: 70 },
-            { field: 'projectionSpan', headerName: 'Projection Span', minWidth: 150 },
-            { field: 'cacheStatus', headerName: 'Cache', minWidth: 90 },
-            { field: 'stale', headerName: 'Stale', minWidth: 80 },
-            { field: 'sampleCount', headerName: 'Samples', minWidth: 90, type: 'number' },
+            { field: 'lastRefreshAge', headerName: tCelestial('monitored.columns.refresh_age'), width: 70, minWidth: 70 },
+            { field: 'projectionSpan', headerName: tCelestial('monitored.columns.projection_span'), minWidth: 150 },
+            { field: 'cacheStatus', headerName: tCelestial('monitored.columns.cache'), minWidth: 90 },
+            { field: 'stale', headerName: tCelestial('monitored.columns.stale'), minWidth: 80 },
+            { field: 'sampleCount', headerName: tCelestial('monitored.columns.samples'), minWidth: 90, type: 'number' },
             {
                 field: 'lastError',
-                headerName: 'Last Error',
+                headerName: tCelestial('monitored.columns.last_error'),
                 minWidth: 250,
                 flex: 1.2,
                 valueGetter: (value) => value || '-',
             },
             {
                 field: 'lastRefreshAt',
-                headerName: 'Last Refresh',
+                headerName: tCelestial('monitored.columns.last_refresh'),
                 minWidth: 185,
-                valueGetter: (value) => formatLastRefresh(value, timezone, locale),
+                valueGetter: (value) => formatLastRefresh(value, timezone, locale, tCelestial),
             },
         ],
-        [timezone, locale, targetNumberByTargetKey],
+        [timezone, locale, targetNumberByTargetKey, tCelestial],
     );
 
     const copyTextToClipboard = useCallback(async (text) => {
@@ -732,15 +736,15 @@ const MonitoredCelestialGridIsland = ({
                 const summary = [
                     row.displayName || '-',
                     row.targetType === 'body'
-                        ? `Body ${row.targetIdentifier || '-'}`
-                        : `Mission ${row.targetIdentifier || '-'}`,
-                    `Source ${row.source || '-'}`,
-                    `Mode ${row.sourceMode || '-'}`,
+                        ? `${tCelestial('common.body')} ${row.targetIdentifier || '-'}`
+                        : `${tCelestial('common.mission')} ${row.targetIdentifier || '-'}`,
+                    `${tCelestial('monitored.summary.source')} ${row.source || '-'}`,
+                    `${tCelestial('monitored.summary.mode')} ${row.sourceMode || '-'}`,
                 ].join(' | ');
                 await copyTextToClipboard(summary);
             }
         } catch (error) {
-            toast.error(`${t('satellite_info.failed_tracking')}: ${error?.message || error?.error || 'Unknown error'}`);
+            toast.error(`${t('satellite_info.failed_tracking')}: ${error?.message || error?.error || tCelestial('errors.unknown_error')}`);
         } finally {
             setRowContextMenu(null);
         }
@@ -752,6 +756,7 @@ const MonitoredCelestialGridIsland = ({
         rowContextMenu?.row,
         socket,
         t,
+        tCelestial,
         trackerInstances,
         trackerViews,
     ]);
@@ -780,13 +785,15 @@ const MonitoredCelestialGridIsland = ({
             { type: 'divider', key: 'divider-copy' },
             {
                 key: 'copy-identifier',
-                label: row.targetType === 'body' ? 'Copy body ID' : 'Copy mission command',
+                label: row.targetType === 'body'
+                    ? tCelestial('context.copy_body_id')
+                    : tCelestial('context.copy_mission_command'),
                 onClick: () => handleRowMenuAction('copy-identifier'),
             },
-            { key: 'copy-target-key', label: 'Copy target key', onClick: () => handleRowMenuAction('copy-target-key') },
-            { key: 'copy-summary', label: 'Copy target summary', onClick: () => handleRowMenuAction('copy-summary') },
+            { key: 'copy-target-key', label: tCelestial('context.copy_target_key'), onClick: () => handleRowMenuAction('copy-target-key') },
+            { key: 'copy-summary', label: tCelestial('context.copy_target_summary'), onClick: () => handleRowMenuAction('copy-summary') },
         ];
-    }, [currentlyTrackedTargetKey, handleRowMenuAction, rowContextMenu?.row, socket, t]);
+    }, [currentlyTrackedTargetKey, handleRowMenuAction, rowContextMenu?.row, socket, t, tCelestial]);
 
     return (
         <>

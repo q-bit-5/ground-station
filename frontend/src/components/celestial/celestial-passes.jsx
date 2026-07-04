@@ -143,23 +143,29 @@ const getStatusPriority = (status) => {
     return 3;
 };
 
-const formatRelativeTime = (isoValue, nowMs) => {
+const formatRelativeTime = (isoValue, nowMs, t) => {
     const parsed = new Date(isoValue).getTime();
     if (!Number.isFinite(parsed)) return '-';
     const deltaSec = Math.round((parsed - nowMs) / 1000);
     const absSec = Math.abs(deltaSec);
 
-    if (absSec < 60) return deltaSec >= 0 ? 'in <1m' : '<1m ago';
+    if (absSec < 60) return deltaSec >= 0 ? t('time.relative.in_less_than_minute') : t('time.relative.less_than_minute_ago');
     if (absSec < 3600) {
         const minutes = Math.floor(absSec / 60);
-        return deltaSec >= 0 ? `in ${minutes}m` : `${minutes}m ago`;
+        return deltaSec >= 0
+            ? t('time.relative.in_minutes', { count: minutes })
+            : t('time.relative.minutes_ago', { count: minutes });
     }
     if (absSec < 86400) {
         const hours = Math.floor(absSec / 3600);
-        return deltaSec >= 0 ? `in ${hours}h` : `${hours}h ago`;
+        return deltaSec >= 0
+            ? t('time.relative.in_hours', { count: hours })
+            : t('time.relative.hours_ago', { count: hours });
     }
     const days = Math.floor(absSec / 86400);
-    return deltaSec >= 0 ? `in ${days}d` : `${days}d ago`;
+    return deltaSec >= 0
+        ? t('time.relative.in_days', { count: days })
+        : t('time.relative.days_ago', { count: days });
 };
 
 const formatAbsoluteTime = (isoValue, timezone, locale) => {
@@ -169,13 +175,13 @@ const formatAbsoluteTime = (isoValue, timezone, locale) => {
     return parsed.toLocaleString(locale, options);
 };
 
-const formatDuration = (seconds) => {
+const formatDuration = (seconds, t) => {
     const value = Number(seconds);
     if (!Number.isFinite(value) || value < 0) return '-';
     const whole = Math.round(value);
     const minutes = Math.floor(whole / 60);
     const remainder = whole % 60;
-    return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
+    return t('time.duration.minutes_seconds', { minutes, seconds: String(remainder).padStart(2, '0') });
 };
 
 const formatAngle = (value) => {
@@ -200,7 +206,7 @@ const buildTrackingTargetKey = (trackingState = {}) => {
     return '';
 };
 
-const PassStatusCell = ({ status, targetNumber = null }) => {
+const PassStatusCell = ({ status, targetNumber = null, t }) => {
     const hasTargetNumber = Number.isFinite(Number(targetNumber)) && Number(targetNumber) > 0;
     const markerSize = 16;
     let statusChip = null;
@@ -210,7 +216,7 @@ const PassStatusCell = ({ status, targetNumber = null }) => {
                 icon={<RadioButtonCheckedIcon sx={{ fontSize: '0.85rem' }} />}
                 size="small"
                 color="success"
-                label="Visible"
+                label={t('passes.status.visible')}
                 variant="filled"
                 sx={{ fontWeight: 700, minWidth: 85 }}
             />
@@ -221,7 +227,7 @@ const PassStatusCell = ({ status, targetNumber = null }) => {
                 icon={<DoneAllIcon sx={{ fontSize: '0.85rem' }} />}
                 size="small"
                 color="info"
-                label="Passed"
+                label={t('passes.status.passed')}
                 variant="filled"
                 sx={{ fontWeight: 700, minWidth: 85 }}
             />
@@ -232,7 +238,7 @@ const PassStatusCell = ({ status, targetNumber = null }) => {
                 icon={<AccessTimeFilledIcon sx={{ fontSize: '0.85rem' }} />}
                 size="small"
                 color="warning"
-                label="Upcoming"
+                label={t('passes.status.upcoming')}
                 variant="outlined"
                 sx={{ fontWeight: 700, minWidth: 85 }}
             />
@@ -258,6 +264,7 @@ const PassStatusCell = ({ status, targetNumber = null }) => {
 
 const PassesTableSettingsDialog = ({ open, onClose }) => {
     const dispatch = useDispatch();
+    const { t } = useTranslation('celestial');
     const columnVisibility = useSelector((state) => state.celestial?.passesTableColumnVisibility || {});
     const pageSize = useSelector((state) => state.celestial?.passesTablePageSize || 10);
     const handleResetValues = useCallback(() => {
@@ -265,27 +272,27 @@ const PassesTableSettingsDialog = ({ open, onClose }) => {
     }, [dispatch]);
 
     const columns = [
-        { name: 'status', label: 'Status', category: 'basic', alwaysVisible: true },
-        { name: 'name', label: 'Name', category: 'basic', alwaysVisible: true },
-        { name: 'targetType', label: 'Type', category: 'basic' },
-        { name: 'peakElevationDeg', label: 'Peak Elevation', category: 'metrics' },
-        { name: 'progress', label: 'Progress', category: 'basic' },
-        { name: 'duration', label: 'Duration', category: 'basic' },
-        { name: 'eventStart', label: 'Start', category: 'time' },
-        { name: 'eventEnd', label: 'End', category: 'time' },
-        { name: 'startAzimuthDeg', label: 'Start Azimuth', category: 'metrics' },
-        { name: 'endAzimuthDeg', label: 'End Azimuth', category: 'metrics' },
-        { name: 'peakAzimuthDeg', label: 'Peak Azimuth', category: 'metrics' },
-        { name: 'cacheStatus', label: 'Cache', category: 'source' },
-        { name: 'stale', label: 'Stale', category: 'source' },
-        { name: 'source', label: 'Source', category: 'source' },
+        { name: 'status', label: t('passes.columns.status'), category: 'basic', alwaysVisible: true },
+        { name: 'name', label: t('passes.columns.name'), category: 'basic', alwaysVisible: true },
+        { name: 'targetType', label: t('passes.columns.type'), category: 'basic' },
+        { name: 'peakElevationDeg', label: t('passes.columns.peak_elevation'), category: 'metrics' },
+        { name: 'progress', label: t('passes.columns.progress'), category: 'basic' },
+        { name: 'duration', label: t('passes.columns.duration'), category: 'basic' },
+        { name: 'eventStart', label: t('passes.columns.start'), category: 'time' },
+        { name: 'eventEnd', label: t('passes.columns.end'), category: 'time' },
+        { name: 'startAzimuthDeg', label: t('passes.columns.start_azimuth'), category: 'metrics' },
+        { name: 'endAzimuthDeg', label: t('passes.columns.end_azimuth'), category: 'metrics' },
+        { name: 'peakAzimuthDeg', label: t('passes.columns.peak_azimuth'), category: 'metrics' },
+        { name: 'cacheStatus', label: t('passes.columns.cache'), category: 'source' },
+        { name: 'stale', label: t('passes.columns.stale'), category: 'source' },
+        { name: 'source', label: t('passes.columns.source'), category: 'source' },
     ];
 
     const categories = {
-        basic: 'Basic',
-        time: 'Time',
-        metrics: 'Metrics',
-        source: 'Source',
+        basic: t('passes.settings.categories.basic'),
+        time: t('passes.settings.categories.time'),
+        metrics: t('passes.settings.categories.metrics'),
+        source: t('passes.settings.categories.source'),
     };
 
     const columnsByCategory = {
@@ -297,14 +304,14 @@ const PassesTableSettingsDialog = ({ open, onClose }) => {
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Celestial Passes Table Settings</DialogTitle>
+            <DialogTitle>{t('passes.settings.title')}</DialogTitle>
             <DialogContent>
                 <Box sx={{ mb: 2 }}>
                     <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                        <InputLabel id="celestial-passes-rows-label">Rows per page</InputLabel>
+                        <InputLabel id="celestial-passes-rows-label">{t('passes.settings.rows_per_page')}</InputLabel>
                         <Select
                             labelId="celestial-passes-rows-label"
-                            label="Rows per page"
+                            label={t('passes.settings.rows_per_page')}
                             value={pageSize}
                             onChange={(event) => dispatch(setCelestialPassesTablePageSize(event.target.value))}
                         >
@@ -350,10 +357,10 @@ const PassesTableSettingsDialog = ({ open, onClose }) => {
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleResetValues} variant="outlined" color="warning">
-                    Reset Values
+                    {t('passes.settings.reset_values')}
                 </Button>
                 <Button onClick={onClose} variant="contained">
-                    Close
+                    {t('passes.settings.close')}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -371,6 +378,7 @@ const CelestialPasses = ({
     refreshDisabled = false,
 }) => {
     const { t } = useTranslation('earthview');
+    const { t: tCelestial } = useTranslation('celestial');
     const { t: tSat } = useTranslation('satellites');
     const { socket } = useSocket();
     const dispatch = useDispatch();
@@ -444,7 +452,7 @@ const CelestialPasses = ({
             id: pass.id || `${pass.target_key || 'target'}_${pass.event_start || ''}`,
             status,
             name: pass.name || '-',
-            targetType: targetTypeKey === 'body' ? 'Body' : 'Mission',
+            targetType: targetTypeKey === 'body' ? tCelestial('common.body') : tCelestial('common.mission'),
             targetTypeKey,
             targetKey: pass.target_key || '',
             targetIdentifier,
@@ -467,10 +475,10 @@ const CelestialPasses = ({
             endAzimuthDeg: Number(pass.end_azimuth_deg),
             peakAzimuthDeg: Number(pass.peak_azimuth_deg),
             cacheStatus: pass.cache || '-',
-            stale: pass.stale ? 'Yes' : 'No',
+            stale: pass.stale ? tCelestial('common.yes') : tCelestial('common.no'),
             source: pass.source || '-',
         };
-    }), [passes, nowMs, trackByTargetKey]);
+    }), [passes, nowMs, trackByTargetKey, tCelestial]);
 
     const filteredRows = useMemo(() => {
         if (quickFilterPreset === 'live') {
@@ -503,7 +511,7 @@ const CelestialPasses = ({
     const columns = useMemo(() => [
         {
             field: 'status',
-            headerName: 'Status',
+            headerName: tCelestial('passes.columns.status'),
             width: 150,
             minWidth: 150,
             align: 'center',
@@ -522,6 +530,7 @@ const CelestialPasses = ({
                 >
                     <PassStatusCell
                         status={params.value}
+                        t={tCelestial}
                         targetNumber={targetNumberByTargetKey?.[String(params.row?.targetKey || '').trim()] ?? null}
                     />
                 </Box>
@@ -529,7 +538,7 @@ const CelestialPasses = ({
         },
         {
             field: 'name',
-            headerName: 'Name',
+            headerName: tCelestial('passes.columns.name'),
             minWidth: 150,
             flex: 1.2,
             renderCell: (params) => (
@@ -548,10 +557,10 @@ const CelestialPasses = ({
                 </Typography>
             ),
         },
-        { field: 'targetType', headerName: 'Type', minWidth: 90, flex: 0.8 },
+        { field: 'targetType', headerName: tCelestial('passes.columns.type'), minWidth: 90, flex: 0.8 },
         {
             field: 'peakElevationDeg',
-            headerName: 'Peak Elevation',
+            headerName: tCelestial('passes.columns.peak_elevation'),
             width: 90,
             minWidth: 90,
             valueFormatter: (value) => formatAngle(value),
@@ -565,7 +574,7 @@ const CelestialPasses = ({
         },
         {
             field: 'progress',
-            headerName: 'Progress',
+            headerName: tCelestial('passes.columns.progress'),
             minWidth: 150,
             sortable: false,
             renderCell: (params) => {
@@ -574,18 +583,18 @@ const CelestialPasses = ({
         },
         {
             field: 'duration',
-            headerName: 'Duration',
+            headerName: tCelestial('passes.columns.duration'),
             minWidth: 100,
-            valueGetter: (_value, row) => formatDuration(row.durationSeconds),
+            valueGetter: (_value, row) => formatDuration(row.durationSeconds, tCelestial),
         },
         {
             field: 'eventStart',
-            headerName: 'Start',
+            headerName: tCelestial('passes.columns.start'),
             minWidth: 180,
             renderCell: (params) => (
                 <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                        {formatRelativeTime(params.value, nowMs)}
+                        {formatRelativeTime(params.value, nowMs, tCelestial)}
                     </Typography>
                     <Typography component="span" className="passes-time-absolute" variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>
                         · {formatAbsoluteTime(params.value, timezone, locale)}
@@ -595,12 +604,12 @@ const CelestialPasses = ({
         },
         {
             field: 'eventEnd',
-            headerName: 'End',
+            headerName: tCelestial('passes.columns.end'),
             minWidth: 180,
             renderCell: (params) => (
                 <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <Typography component="span" variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                        {formatRelativeTime(params.value, nowMs)}
+                        {formatRelativeTime(params.value, nowMs, tCelestial)}
                     </Typography>
                     <Typography component="span" className="passes-time-absolute" variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>
                         · {formatAbsoluteTime(params.value, timezone, locale)}
@@ -608,13 +617,13 @@ const CelestialPasses = ({
                 </Box>
             ),
         },
-        { field: 'startAzimuthDeg', headerName: 'Start Azimuth', width: 90, minWidth: 90, valueFormatter: (value) => formatAngle(value) },
-        { field: 'endAzimuthDeg', headerName: 'End Azimuth', width: 90, minWidth: 90, valueFormatter: (value) => formatAngle(value) },
-        { field: 'peakAzimuthDeg', headerName: 'Peak Azimuth', minWidth: 120, valueFormatter: (value) => formatAngle(value) },
-        { field: 'cacheStatus', headerName: 'Cache', width: 90, minWidth: 90 },
-        { field: 'stale', headerName: 'Stale', width: 80, minWidth: 80 },
-        { field: 'source', headerName: 'Source', width: 110, minWidth: 110 },
-    ], [nowMs, timezone, locale, targetNumberByTargetKey]);
+        { field: 'startAzimuthDeg', headerName: tCelestial('passes.columns.start_azimuth'), width: 90, minWidth: 90, valueFormatter: (value) => formatAngle(value) },
+        { field: 'endAzimuthDeg', headerName: tCelestial('passes.columns.end_azimuth'), width: 90, minWidth: 90, valueFormatter: (value) => formatAngle(value) },
+        { field: 'peakAzimuthDeg', headerName: tCelestial('passes.columns.peak_azimuth'), minWidth: 120, valueFormatter: (value) => formatAngle(value) },
+        { field: 'cacheStatus', headerName: tCelestial('passes.columns.cache'), width: 90, minWidth: 90 },
+        { field: 'stale', headerName: tCelestial('passes.columns.stale'), width: 80, minWidth: 80 },
+        { field: 'source', headerName: tCelestial('passes.columns.source'), width: 110, minWidth: 110 },
+    ], [nowMs, timezone, locale, targetNumberByTargetKey, tCelestial]);
 
     const handleQuickPreset = useCallback((preset) => {
         setQuickFilterPreset(preset);
@@ -838,15 +847,15 @@ const CelestialPasses = ({
                 const summary = [
                     row.name || '-',
                     row.targetTypeKey === 'body'
-                        ? `Body ${row.targetIdentifier || '-'}`
-                        : `Mission ${row.targetIdentifier || '-'}`,
-                    `Start ${row.eventStart || '-'}`,
-                    `End ${row.eventEnd || '-'}`,
+                        ? `${tCelestial('common.body')} ${row.targetIdentifier || '-'}`
+                        : `${tCelestial('common.mission')} ${row.targetIdentifier || '-'}`,
+                    `${tCelestial('passes.summary.start')} ${row.eventStart || '-'}`,
+                    `${tCelestial('passes.summary.end')} ${row.eventEnd || '-'}`,
                 ].join(' | ');
                 await copyTextToClipboard(summary);
             }
         } catch (error) {
-            toast.error(`${t('satellite_info.failed_tracking')}: ${error?.message || error?.error || 'Unknown error'}`);
+            toast.error(`${t('satellite_info.failed_tracking')}: ${error?.message || error?.error || tCelestial('errors.unknown_error')}`);
         } finally {
             setRowContextMenu(null);
         }
@@ -858,6 +867,7 @@ const CelestialPasses = ({
         rowContextMenu?.row,
         socket,
         t,
+        tCelestial,
         trackerInstances,
         trackerViews,
     ]);
@@ -886,21 +896,23 @@ const CelestialPasses = ({
             { type: 'divider', key: 'divider-copy' },
             {
                 key: 'copy-identifier',
-                label: row.targetTypeKey === 'body' ? 'Copy body ID' : 'Copy mission command',
+                label: row.targetTypeKey === 'body'
+                    ? tCelestial('context.copy_body_id')
+                    : tCelestial('context.copy_mission_command'),
                 onClick: () => handleRowMenuAction('copy-identifier'),
             },
             {
                 key: 'copy-target-key',
-                label: 'Copy target key',
+                label: tCelestial('context.copy_target_key'),
                 onClick: () => handleRowMenuAction('copy-target-key'),
             },
             {
                 key: 'copy-summary',
-                label: 'Copy pass summary',
+                label: tCelestial('context.copy_pass_summary'),
                 onClick: () => handleRowMenuAction('copy-summary'),
             },
         ];
-    }, [currentlyTrackedTargetKey, handleRowMenuAction, rowContextMenu?.row, socket, t]);
+    }, [currentlyTrackedTargetKey, handleRowMenuAction, rowContextMenu?.row, socket, t, tCelestial]);
 
     return (
         <>
@@ -913,75 +925,75 @@ const CelestialPasses = ({
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {t('celestial.passes_title', { defaultValue: 'Celestial Passes' })}
+                            {tCelestial('passes.title')}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
                             ({rows.length} {rows.length === 1
-                                ? t('celestial.pass_label', { defaultValue: 'pass' })
-                                : t('celestial.passes_label', { defaultValue: 'passes' })})
+                                ? tCelestial('passes.count_label_single')
+                                : tCelestial('passes.count_label_plural')})
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        <Tooltip title="All passes (Alt+1)">
+                        <Tooltip title={tCelestial('passes.quick_filters.all_tooltip')}>
                             <span>
                                 <Button
                                     size="small"
                                     variant={quickFilterPreset === 'all' ? 'contained' : 'outlined'}
                                     onClick={() => handleQuickPreset('all')}
                                     sx={quickFilterButtonSx}
-                                    aria-label="All passes"
+                                    aria-label={tCelestial('passes.quick_filters.all_aria')}
                                 >
-                                    {useIconQuickFilters ? <DoneAllIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : 'All'}
+                                    {useIconQuickFilters ? <DoneAllIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : tCelestial('passes.quick_filters.all_short')}
                                 </Button>
                             </span>
                         </Tooltip>
-                        <Tooltip title="Live passes (Alt+2)">
+                        <Tooltip title={tCelestial('passes.quick_filters.live_tooltip')}>
                             <span>
                                 <Button
                                     size="small"
                                     variant={quickFilterPreset === 'live' ? 'contained' : 'outlined'}
                                     onClick={() => handleQuickPreset('live')}
                                     sx={quickFilterButtonSx}
-                                    aria-label="Live passes"
+                                    aria-label={tCelestial('passes.quick_filters.live_aria')}
                                 >
-                                    {useIconQuickFilters ? <RadioButtonCheckedIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : 'Live'}
+                                    {useIconQuickFilters ? <RadioButtonCheckedIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : tCelestial('passes.quick_filters.live_short')}
                                 </Button>
                             </span>
                         </Tooltip>
-                        <Tooltip title="Live or next 30 minutes (Alt+3)">
+                        <Tooltip title={tCelestial('passes.quick_filters.next_30_tooltip')}>
                             <span>
                                 <Button
                                     size="small"
                                     variant={quickFilterPreset === 'next30' ? 'contained' : 'outlined'}
                                     onClick={() => handleQuickPreset('next30')}
                                     sx={quickFilterButtonSx}
-                                    aria-label="Next 30 minutes"
+                                    aria-label={tCelestial('passes.quick_filters.next_30_aria')}
                                 >
-                                    {useIconQuickFilters ? <AccessTimeFilledIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : 'Next 30m'}
+                                    {useIconQuickFilters ? <AccessTimeFilledIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : tCelestial('passes.quick_filters.next_30_short')}
                                 </Button>
                             </span>
                         </Tooltip>
-                        <Tooltip title="Highest elevation first (Alt+4)">
+                        <Tooltip title={tCelestial('passes.quick_filters.highest_elevation_tooltip')}>
                             <span>
                                 <Button
                                     size="small"
                                     variant={quickFilterPreset === 'highEl' ? 'contained' : 'outlined'}
                                     onClick={() => handleQuickPreset('highEl')}
                                     sx={quickFilterButtonSx}
-                                    aria-label="Highest elevation first"
+                                    aria-label={tCelestial('passes.quick_filters.highest_elevation_aria')}
                                 >
-                                    {useIconQuickFilters ? <ArrowUpwardRoundedIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : 'High El'}
+                                    {useIconQuickFilters ? <ArrowUpwardRoundedIcon sx={{ fontSize: isTightHeader ? '0.82rem' : '0.9rem' }} /> : tCelestial('passes.quick_filters.high_el_short')}
                                 </Button>
                             </span>
                         </Tooltip>
-                        <Tooltip title="Table settings">
+                        <Tooltip title={tCelestial('passes.table_settings')}>
                             <span>
                                 <IconButton size="small" onClick={() => setSettingsOpen(true)} sx={titleIconButtonSx}>
                                     <SettingsIcon fontSize="small" />
                                 </IconButton>
                             </span>
                         </Tooltip>
-                        <Tooltip title="Refresh passes">
+                        <Tooltip title={tCelestial('passes.refresh')}>
                             <span>
                                 <IconButton
                                     size="small"
