@@ -129,6 +129,7 @@ class TrackerManager:
         dbsession,
         *,
         target_key: str,
+        allow_stale: bool = False,
     ) -> Optional[Dict[str, Any]]:
         cached = await crud_celestial_vectors.fetch_latest_celestial_vector_snapshot_for_target(
             dbsession,
@@ -136,12 +137,34 @@ class TrackerManager:
             valid_only=True,
             as_of=datetime.now(timezone.utc),
         )
+        stale = False
+        if allow_stale and cached.get("success") and not isinstance(cached.get("data"), dict):
+            # Tracker workers can still interpolate from stored orbit samples after
+            # the freshness TTL expires; the scheduled sync will replace this later.
+            cached = await crud_celestial_vectors.fetch_latest_celestial_vector_snapshot_for_target(
+                dbsession,
+                target_id=target_key,
+                valid_only=False,
+                as_of=datetime.now(timezone.utc),
+            )
+            stale = isinstance(cached.get("data"), dict)
         if not cached.get("success") or not isinstance(cached.get("data"), dict):
             return None
-        cached_payload = (cached["data"] or {}).get("payload")
+        cached_data = cached["data"] or {}
+        cached_payload = cached_data.get("payload")
         if not isinstance(cached_payload, dict):
             return None
-        return dict(cached_payload)
+        payload = dict(cached_payload)
+        if stale:
+            payload["stale"] = True
+            logger.warning(
+                "Using stale celestial vector snapshot for tracker context "
+                "(target_key=%s fetched_at=%s expires_at=%s)",
+                target_key,
+                cached_data.get("fetched_at"),
+                cached_data.get("expires_at"),
+            )
+        return payload
 
     async def _build_mission_ephemeris_payload(
         self,
@@ -157,14 +180,17 @@ class TrackerManager:
         payload = await self._load_cached_vector_payload(
             dbsession,
             target_key=target_key,
+            allow_stale=True,
         )
         earth_payload = await self._load_cached_vector_payload(
             dbsession,
             target_key="body:earth",
+            allow_stale=True,
         )
         if payload is None or earth_payload is None:
             return None
 
+        stale = bool(payload.get("stale") or earth_payload.get("stale"))
         return {
             "target_type": "mission",
             "name": str(tracking_state.get("target_name") or command).strip() or command,
@@ -179,6 +205,7 @@ class TrackerManager:
             "earth_orbit_sample_times_utc": earth_payload.get("orbit_sample_times_utc") or [],
             "source": payload.get("source", "horizons"),
             "fetched_at_utc": payload.get("fetched_at_utc"),
+            "stale": stale,
         }
 
     async def _build_body_ephemeris_payload(
@@ -193,10 +220,12 @@ class TrackerManager:
         body_payload = await self._load_cached_vector_payload(
             dbsession,
             target_key=f"body:{body_id}",
+            allow_stale=True,
         )
         earth_payload = await self._load_cached_vector_payload(
             dbsession,
             target_key="body:earth",
+            allow_stale=True,
         )
         if body_payload is None or earth_payload is None:
             return None
@@ -204,6 +233,7 @@ class TrackerManager:
         body_name = (
             str(tracking_state.get("target_name") or body.get("name") or body_id).strip() or body_id
         )
+        stale = bool(body_payload.get("stale") or earth_payload.get("stale"))
         return {
             "target_type": "body",
             "body_id": body_id,
@@ -218,6 +248,7 @@ class TrackerManager:
             "earth_orbit_sample_times_utc": earth_payload.get("orbit_sample_times_utc") or [],
             "source": body_payload.get("source", "horizons"),
             "fetched_at_utc": body_payload.get("fetched_at_utc"),
+            "stale": stale,
         }
 
     async def _ensure_tracking_state(self) -> Optional[Dict[str, Any]]:
