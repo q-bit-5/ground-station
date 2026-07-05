@@ -28,6 +28,8 @@ import FrequencyScale from '../waterfall/frequency-scale.jsx';
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const WHEEL_ZOOM_STEP = 0.35;
 const SCALE_STRIP_HEIGHT = 20;
+const TAP_MOVE_TOLERANCE_PX = 6;
+const TRANSFORM_INTERACTION_IDLE_MS = 120;
 
 export default function WaterfallViewer({
     src,
@@ -47,12 +49,20 @@ export default function WaterfallViewer({
     const activePointerIdRef = useRef(null);
     const isDraggingRef = useRef(false);
     const lastPointerXRef = useRef(0);
+    const pointerStartRef = useRef(null);
+    const interactionMovedRef = useRef(false);
+    const pinchActiveRef = useRef(false);
+    const touchPointersRef = useRef(new Map());
+    const pinchStartRef = useRef({ distance: 0, pointRatio: 0, scale: 1 });
     const scaleRef = useRef(1);
     const positionXRef = useRef(0);
+    const transformInteractionActiveRef = useRef(false);
+    const transformInteractionIdleTimerRef = useRef(null);
 
     const [scaleX, setScaleX] = useState(1);
     const [positionX, setPositionX] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
+    const [isTransformInteracting, setIsTransformInteracting] = useState(false);
     const [showHint, setShowHint] = useState(true);
     const [cursorInfo, setCursorInfo] = useState(null);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -89,14 +99,47 @@ export default function WaterfallViewer({
         [formatDate]
     );
 
-    const applyTransform = useCallback((nextScale, nextPositionX) => {
+    const clearTransformInteractionTimer = useCallback(() => {
+        if (transformInteractionIdleTimerRef.current !== null) {
+            clearTimeout(transformInteractionIdleTimerRef.current);
+            transformInteractionIdleTimerRef.current = null;
+        }
+    }, []);
+
+    const endTransformInteraction = useCallback(() => {
+        clearTransformInteractionTimer();
+        if (transformInteractionActiveRef.current) {
+            transformInteractionActiveRef.current = false;
+            setIsTransformInteracting(false);
+        }
+    }, [clearTransformInteractionTimer]);
+
+    const markTransformInteraction = useCallback(() => {
+        if (!transformInteractionActiveRef.current) {
+            transformInteractionActiveRef.current = true;
+            setIsTransformInteracting(true);
+        }
+
+        clearTransformInteractionTimer();
+        transformInteractionIdleTimerRef.current = setTimeout(() => {
+            transformInteractionIdleTimerRef.current = null;
+            transformInteractionActiveRef.current = false;
+            setIsTransformInteracting(false);
+        }, TRANSFORM_INTERACTION_IDLE_MS);
+    }, [clearTransformInteractionTimer]);
+
+    const applyTransform = useCallback((nextScale, nextPositionX, options = {}) => {
+        if (options.trackInteraction) {
+            // Defer frequency-scale measurement while the transformed canvas is still moving.
+            markTransformInteraction();
+        }
         scaleRef.current = nextScale;
         positionXRef.current = nextPositionX;
         setScaleX(nextScale);
         setPositionX(nextPositionX);
         // Keep frequency scale labels in sync with the transformed (zoomed) width.
         setTransformTick((tick) => tick + 1);
-    }, []);
+    }, [markTransformInteraction]);
 
     const clampPositionForScale = useCallback(
         (candidate, nextScale) => {
@@ -153,6 +196,8 @@ export default function WaterfallViewer({
             return {
                 x: localX,
                 y: localY,
+                normalizedX,
+                normalizedY,
                 frequency,
                 timeLabel,
             };
@@ -184,7 +229,7 @@ export default function WaterfallViewer({
                 nextPositionX = clampPositionForScale(nextPositionX, nextScale);
             }
 
-            applyTransform(nextScale, nextPositionX);
+            applyTransform(nextScale, nextPositionX, { trackInteraction: true });
         },
         [applyTransform, clampPositionForScale, containerSize.width, maxZoom, minZoom]
     );
@@ -195,10 +240,87 @@ export default function WaterfallViewer({
                 return;
             }
             const nextPositionX = clampPositionForScale(positionXRef.current + deltaX, scaleRef.current);
-            applyTransform(scaleRef.current, nextPositionX);
+            applyTransform(scaleRef.current, nextPositionX, { trackInteraction: true });
         },
         [applyTransform, clampPositionForScale]
     );
+
+    const markPointerMoved = useCallback((event) => {
+        const start = pointerStartRef.current;
+        if (!start || start.pointerId !== event.pointerId) {
+            return;
+        }
+
+        const movedDistance = Math.hypot(event.clientX - start.clientX, event.clientY - start.clientY);
+        if (movedDistance > TAP_MOVE_TOLERANCE_PX) {
+            interactionMovedRef.current = true;
+        }
+    }, []);
+
+    const beginPinchZoom = useCallback(() => {
+        if (!containerSize.width || touchPointersRef.current.size < 2) {
+            return;
+        }
+        const points = Array.from(touchPointersRef.current.values());
+        const [firstPoint, secondPoint] = points;
+        const distance = Math.hypot(
+            secondPoint.clientX - firstPoint.clientX,
+            secondPoint.clientY - firstPoint.clientY
+        );
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect || distance <= 0) {
+            return;
+        }
+
+        const centerX = ((firstPoint.clientX + secondPoint.clientX) / 2) - rect.left;
+        pinchStartRef.current = {
+            distance,
+            pointRatio: (centerX - positionXRef.current) / (containerSize.width * scaleRef.current),
+            scale: scaleRef.current,
+        };
+        activePointerIdRef.current = null;
+        isDraggingRef.current = false;
+        interactionMovedRef.current = true;
+        pinchActiveRef.current = true;
+        setIsDragging(false);
+    }, [containerSize.width]);
+
+    const pinchZoomOnXAxisOnly = useCallback(() => {
+        if (!containerSize.width || touchPointersRef.current.size < 2) {
+            return;
+        }
+        const start = pinchStartRef.current;
+        if (!start.distance) {
+            beginPinchZoom();
+            return;
+        }
+
+        const points = Array.from(touchPointersRef.current.values());
+        const [firstPoint, secondPoint] = points;
+        const distance = Math.hypot(
+            secondPoint.clientX - firstPoint.clientX,
+            secondPoint.clientY - firstPoint.clientY
+        );
+        if (distance <= 0) {
+            return;
+        }
+
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) {
+            return;
+        }
+
+        const centerX = ((firstPoint.clientX + secondPoint.clientX) / 2) - rect.left;
+        const nextScale = clamp(start.scale * (distance / start.distance), minZoom, maxZoom);
+        let nextPositionX = centerX - start.pointRatio * containerSize.width * nextScale;
+        if (nextScale === 1) {
+            nextPositionX = 0;
+        } else {
+            nextPositionX = clampPositionForScale(nextPositionX, nextScale);
+        }
+
+        applyTransform(nextScale, nextPositionX, { trackInteraction: true });
+    }, [applyTransform, beginPinchZoom, clampPositionForScale, containerSize.width, maxZoom, minZoom]);
 
     const resetTransform = useCallback(() => {
         applyTransform(1, 0);
@@ -233,35 +355,75 @@ export default function WaterfallViewer({
             const deltaScale = direction * WHEEL_ZOOM_STEP;
 
             zoomOnXAxisOnly(deltaScale, localX);
-            setCursorInfo(buildCursorInfo(event.clientX, event.clientY));
             setShowHint(false);
         },
-        [buildCursorInfo, src, zoomOnXAxisOnly]
+        [src, zoomOnXAxisOnly]
     );
 
     const handlePointerDown = useCallback(
         (event) => {
             if (!src) return;
             if (event.pointerType === 'mouse' && event.button !== 0) return;
-            if (event.pointerType !== 'touch' && event.cancelable) {
+            if (event.cancelable) {
                 event.preventDefault();
             }
             event.currentTarget.setPointerCapture(event.pointerId);
+            setShowHint(false);
+            pointerStartRef.current = {
+                pointerId: event.pointerId,
+                pointerType: event.pointerType,
+                clientX: event.clientX,
+                clientY: event.clientY,
+            };
+            interactionMovedRef.current = false;
+            if (event.pointerType !== 'touch') {
+                pinchActiveRef.current = false;
+            }
+
+            if (event.pointerType === 'touch') {
+                touchPointersRef.current.set(event.pointerId, {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                });
+
+                if (touchPointersRef.current.size >= 2) {
+                    beginPinchZoom();
+                    return;
+                }
+            }
+
             activePointerIdRef.current = event.pointerId;
             lastPointerXRef.current = event.clientX;
-            setCursorInfo(buildCursorInfo(event.clientX, event.clientY));
-            setShowHint(false);
             if (scaleRef.current > 1) {
                 isDraggingRef.current = true;
                 setIsDragging(true);
             }
         },
-        [buildCursorInfo, src]
+        [beginPinchZoom, src]
     );
 
     const handlePointerMove = useCallback(
         (event) => {
             if (!src) return;
+            markPointerMoved(event);
+
+            if (event.pointerType === 'touch') {
+                if (!touchPointersRef.current.has(event.pointerId)) {
+                    return;
+                }
+                if (event.cancelable) {
+                    event.preventDefault();
+                }
+                touchPointersRef.current.set(event.pointerId, {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                });
+
+                if (touchPointersRef.current.size >= 2) {
+                    pinchZoomOnXAxisOnly();
+                    return;
+                }
+            }
 
             if (activePointerIdRef.current === event.pointerId && isDraggingRef.current) {
                 // Browser image/selection drags can steal the gesture if a frame stalls mid-pan.
@@ -272,18 +434,73 @@ export default function WaterfallViewer({
                 lastPointerXRef.current = event.clientX;
                 panOnXAxisOnly(deltaX);
             }
-
-            setCursorInfo(buildCursorInfo(event.clientX, event.clientY));
         },
-        [buildCursorInfo, panOnXAxisOnly, src]
+        [markPointerMoved, panOnXAxisOnly, pinchZoomOnXAxisOnly, src]
     );
 
     const handlePointerUp = useCallback((event) => {
+        const shouldPlaceCrosshair =
+            activePointerIdRef.current === event.pointerId &&
+            !interactionMovedRef.current &&
+            !pinchActiveRef.current;
+
+        if (shouldPlaceCrosshair) {
+            const nextCursorInfo = buildCursorInfo(event.clientX, event.clientY);
+            if (nextCursorInfo) {
+                setCursorInfo(nextCursorInfo);
+            }
+        }
+
+        if (event.pointerType === 'touch' && touchPointersRef.current.has(event.pointerId)) {
+            touchPointersRef.current.delete(event.pointerId);
+            pinchStartRef.current = { distance: 0, pointRatio: 0, scale: 1 };
+
+            if (touchPointersRef.current.size === 1) {
+                const [remainingPoint] = Array.from(touchPointersRef.current.entries());
+                const [remainingPointerId, point] = remainingPoint;
+                activePointerIdRef.current = remainingPointerId;
+                lastPointerXRef.current = point.clientX;
+                pointerStartRef.current = {
+                    pointerId: remainingPointerId,
+                    pointerType: 'touch',
+                    clientX: point.clientX,
+                    clientY: point.clientY,
+                };
+                interactionMovedRef.current = true;
+                if (scaleRef.current > 1) {
+                    isDraggingRef.current = true;
+                    setIsDragging(true);
+                }
+            } else {
+                pinchActiveRef.current = false;
+            }
+        }
+
         if (activePointerIdRef.current === event.pointerId) {
             activePointerIdRef.current = null;
             isDraggingRef.current = false;
+            pointerStartRef.current = null;
             setIsDragging(false);
         }
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+    }, [buildCursorInfo]);
+
+    const handlePointerCancel = useCallback((event) => {
+        if (event.pointerType === 'touch') {
+            touchPointersRef.current.delete(event.pointerId);
+            if (touchPointersRef.current.size === 0) {
+                pinchActiveRef.current = false;
+            }
+        }
+        if (activePointerIdRef.current === event.pointerId) {
+            activePointerIdRef.current = null;
+            isDraggingRef.current = false;
+            pointerStartRef.current = null;
+            setIsDragging(false);
+        }
+        pinchStartRef.current = { distance: 0, pointRatio: 0, scale: 1 };
         if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
         }
@@ -310,6 +527,26 @@ export default function WaterfallViewer({
             end: fullStartFrequency + visibleEndNorm * sampleRate,
         };
     }, [centerFrequency, containerSize.width, positionX, sampleRate, scaleX]);
+
+    const displayedCursorInfo = useMemo(() => {
+        if (!cursorInfo || !containerSize.width || !containerSize.height) {
+            return null;
+        }
+
+        const imageViewportHeight = Math.max(1, containerSize.height - SCALE_STRIP_HEIGHT);
+        const x = positionX + cursorInfo.normalizedX * containerSize.width * scaleX;
+        const y = SCALE_STRIP_HEIGHT + cursorInfo.normalizedY * imageViewportHeight;
+
+        if (x < 0 || x > containerSize.width || y < SCALE_STRIP_HEIGHT || y > containerSize.height) {
+            return null;
+        }
+
+        return {
+            ...cursorInfo,
+            x,
+            y,
+        };
+    }, [containerSize.height, containerSize.width, cursorInfo, positionX, scaleX]);
 
     useEffect(() => {
         if (!containerRef.current) return undefined;
@@ -344,6 +581,10 @@ export default function WaterfallViewer({
         };
     }, [handleWheel]);
 
+    useEffect(() => () => {
+        clearTransformInteractionTimer();
+    }, [clearTransformInteractionTimer]);
+
     useEffect(() => {
         const clamped = clampPositionForScale(positionXRef.current, scaleRef.current);
         if (clamped !== positionXRef.current) {
@@ -354,10 +595,16 @@ export default function WaterfallViewer({
     useEffect(() => {
         applyTransform(1, 0);
         isDraggingRef.current = false;
+        pointerStartRef.current = null;
+        interactionMovedRef.current = false;
+        pinchActiveRef.current = false;
+        touchPointersRef.current.clear();
+        pinchStartRef.current = { distance: 0, pointRatio: 0, scale: 1 };
+        endTransformInteraction();
         setIsDragging(false);
         setCursorInfo(null);
         setShowHint(true);
-    }, [applyTransform, src]);
+    }, [applyTransform, endTransformInteraction, src]);
 
     useEffect(() => {
         if (!showHint) return undefined;
@@ -374,8 +621,7 @@ export default function WaterfallViewer({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onPointerLeave={() => setCursorInfo(null)}
+            onPointerCancel={handlePointerCancel}
             onDragStart={handleDragStart}
             draggable={false}
             sx={{
@@ -385,7 +631,7 @@ export default function WaterfallViewer({
                 borderColor: 'divider',
                 borderRadius: 1.5,
                 bgcolor: '#05070b',
-                touchAction: 'pan-y',
+                touchAction: 'none',
                 cursor: containerCursor,
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
@@ -411,6 +657,8 @@ export default function WaterfallViewer({
                         sampleRate={sampleRate}
                         containerWidth={containerSize.width || 1}
                         transformTick={transformTick}
+                        interactionActive={isTransformInteracting}
+                        allowInteractionMeasure={false}
                         canvasHeight={SCALE_STRIP_HEIGHT}
                     />
                 </Box>
@@ -433,36 +681,39 @@ export default function WaterfallViewer({
                 />
             </Box>
 
-            {cursorInfo && (
+            {displayedCursorInfo && (
                 <>
                     <Box
+                        data-testid="waterfall-crosshair-vertical"
+                        style={{ left: displayedCursorInfo.x }}
                         sx={{
                             position: 'absolute',
                             top: 0,
                             bottom: 0,
-                            left: cursorInfo.x,
                             width: '1px',
                             bgcolor: 'rgba(255, 255, 255, 0.5)',
                             pointerEvents: 'none',
                         }}
                     />
                     <Box
+                        data-testid="waterfall-crosshair-horizontal"
+                        style={{ top: displayedCursorInfo.y }}
                         sx={{
                             position: 'absolute',
                             left: 0,
                             right: 0,
-                            top: cursorInfo.y,
                             height: '1px',
                             bgcolor: 'rgba(255, 255, 255, 0.5)',
                             pointerEvents: 'none',
                         }}
                     />
-                    {cursorInfo.frequency !== null && (
+                    {displayedCursorInfo.frequency !== null && (
                         <Box
+                            data-testid="waterfall-crosshair-frequency"
+                            style={{ left: displayedCursorInfo.x }}
                             sx={{
                                 position: 'absolute',
                                 top: 8,
-                                left: cursorInfo.x,
                                 transform: 'translateX(-50%)',
                                 px: 1,
                                 py: 0.4,
@@ -475,15 +726,16 @@ export default function WaterfallViewer({
                                 whiteSpace: 'nowrap',
                             }}
                         >
-                            {formatFrequencyValue(cursorInfo.frequency)}
+                            {formatFrequencyValue(displayedCursorInfo.frequency)}
                         </Box>
                     )}
-                    {cursorInfo.timeLabel && (
+                    {displayedCursorInfo.timeLabel && (
                         <Box
+                            data-testid="waterfall-crosshair-time"
+                            style={{ top: displayedCursorInfo.y }}
                             sx={{
                                 position: 'absolute',
                                 left: 8,
-                                top: cursorInfo.y,
                                 transform: 'translateY(-50%)',
                                 px: 1,
                                 py: 0.4,
@@ -496,7 +748,7 @@ export default function WaterfallViewer({
                                 whiteSpace: 'nowrap',
                             }}
                         >
-                            {cursorInfo.timeLabel}
+                            {displayedCursorInfo.timeLabel}
                         </Box>
                     )}
                 </>
@@ -613,7 +865,7 @@ export default function WaterfallViewer({
                         pointerEvents: 'none',
                     }}
                 >
-                    Scroll to zoom X axis, drag to pan
+                    Scroll or pinch to zoom X axis, drag to pan
                 </Box>
             )}
         </Box>
