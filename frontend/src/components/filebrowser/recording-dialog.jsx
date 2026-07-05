@@ -31,7 +31,7 @@ import {
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useSelector } from 'react-redux';
-import ZoomableImage from '../common/zoomable-image.jsx';
+import WaterfallViewer from './waterfall-viewer.jsx';
 
 function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
@@ -83,63 +83,6 @@ export default function RecordingDialog({ open, onClose, recording }) {
         }
         return `${frequencyHz.toFixed(0)} Hz`;
     };
-
-
-    const getImageCursorInfo = ({ event, containerRect, naturalWidth, naturalHeight, pan, zoom }) => {
-        if (!containerRect || !naturalWidth || !naturalHeight) return null;
-
-        const localX = event.clientX - containerRect.left;
-        const localY = event.clientY - containerRect.top;
-        const centeredX = localX - containerRect.width / 2;
-        const centeredY = localY - containerRect.height / 2;
-        const unscaledX = (centeredX - pan.x) / zoom;
-        const unscaledY = (centeredY - pan.y) / zoom;
-
-        const scaleToContain = Math.min(containerRect.width / naturalWidth, containerRect.height / naturalHeight);
-        const contentWidth = naturalWidth * scaleToContain;
-        const contentHeight = naturalHeight * scaleToContain;
-
-        const halfWidth = contentWidth / 2;
-        const halfHeight = contentHeight / 2;
-        if (unscaledX < -halfWidth || unscaledX > halfWidth || unscaledY < -halfHeight || unscaledY > halfHeight) {
-            return null;
-        }
-
-        const imageX = (unscaledX + halfWidth) / contentWidth * naturalWidth;
-        const imageY = (unscaledY + halfHeight) / contentHeight * naturalHeight;
-
-        const centerFrequency = recording?.metadata?.center_frequency;
-        const sampleRate = recording?.metadata?.sample_rate;
-        const startTime = recording?.metadata?.start_time;
-        const endTime = recording?.metadata?.finalized_time || recording?.modified || recording?.created;
-
-        const hasFrequencyData = Number.isFinite(centerFrequency) && Number.isFinite(sampleRate);
-        const hasTimeData = Boolean(startTime && endTime);
-
-        let frequency = null;
-        if (hasFrequencyData) {
-            const startFreq = centerFrequency - sampleRate / 2;
-            frequency = startFreq + (imageX / naturalWidth) * sampleRate;
-        }
-
-        let timeLabel = '';
-        if (hasTimeData) {
-            const startMs = new Date(startTime).getTime();
-            const endMs = new Date(endTime).getTime();
-            if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs >= startMs) {
-                const timeMs = startMs + (imageY / naturalHeight) * (endMs - startMs);
-                timeLabel = formatDate(new Date(timeMs).toISOString());
-            }
-        }
-
-        return {
-            x: localX,
-            y: localY,
-            frequency,
-            timeLabel,
-        };
-    };
-
     if (!recording) return null;
 
     return (
@@ -188,11 +131,19 @@ export default function RecordingDialog({ open, onClose, recording }) {
                 {recording && (
                     <Box sx={{ mt: 3 }}>
                         {recording.snapshot && (
-                            <ZoomableImage
+                            <WaterfallViewer
                                 src={recording.snapshot.url}
                                 alt={recording.name}
-                                resetKey={`${open}-${recording.snapshot.url}`}
-                                getCursorInfo={getImageCursorInfo}
+                                centerFrequency={recording?.metadata?.center_frequency}
+                                sampleRate={recording?.metadata?.sample_rate}
+                                startTime={recording?.metadata?.start_time}
+                                endTime={
+                                    recording?.metadata?.finalized_time ||
+                                    recording?.modified ||
+                                    recording?.created
+                                }
+                                formatDate={formatDate}
+                                formatFrequency={formatFrequency}
                                 containerSx={{
                                     mb: 2,
                                     height: { xs: 280, sm: 360, md: 440 },
@@ -201,76 +152,6 @@ export default function RecordingDialog({ open, onClose, recording }) {
                                         borderStyle: 'dashed',
                                     },
                                 }}
-                                renderOverlay={({ cursorInfo }) => (
-                                    cursorInfo ? (
-                                        <>
-                                            <Box
-                                                sx={{
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    bottom: 0,
-                                                    left: cursorInfo.x,
-                                                    width: '1px',
-                                                    bgcolor: 'rgba(255, 255, 255, 0.5)',
-                                                    pointerEvents: 'none',
-                                                }}
-                                            />
-                                            <Box
-                                                sx={{
-                                                    position: 'absolute',
-                                                    left: 0,
-                                                    right: 0,
-                                                    top: cursorInfo.y,
-                                                    height: '1px',
-                                                    bgcolor: 'rgba(255, 255, 255, 0.5)',
-                                                    pointerEvents: 'none',
-                                                }}
-                                            />
-                                            {cursorInfo.frequency !== null && (
-                                                <Box
-                                                    sx={{
-                                                        position: 'absolute',
-                                                        top: 8,
-                                                        left: cursorInfo.x,
-                                                        transform: 'translateX(-50%)',
-                                                        px: 1,
-                                                        py: 0.4,
-                                                        borderRadius: 1,
-                                                        bgcolor: 'rgba(0, 0, 0, 0.7)',
-                                                        color: 'common.white',
-                                                        fontSize: '0.7rem',
-                                                        letterSpacing: '0.02em',
-                                                        pointerEvents: 'none',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
-                                                    {formatFrequency(cursorInfo.frequency)}
-                                                </Box>
-                                            )}
-                                            {cursorInfo.timeLabel && (
-                                                <Box
-                                                    sx={{
-                                                        position: 'absolute',
-                                                        left: 8,
-                                                        top: cursorInfo.y,
-                                                        transform: 'translateY(-50%)',
-                                                        px: 1,
-                                                        py: 0.4,
-                                                        borderRadius: 1,
-                                                        bgcolor: 'rgba(0, 0, 0, 0.7)',
-                                                        color: 'common.white',
-                                                        fontSize: '0.7rem',
-                                                        letterSpacing: '0.02em',
-                                                        pointerEvents: 'none',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
-                                                    {cursorInfo.timeLabel}
-                                                </Box>
-                                            )}
-                                        </>
-                                    ) : null
-                                )}
                             />
                         )}
 

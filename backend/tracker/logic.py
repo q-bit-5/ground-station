@@ -551,11 +551,52 @@ class SatelliteTracker:
                 "satellite_tles": satellite_tles,
             }
 
+        target_identifier = str(
+            tracking_state.get("command")
+            or tracking_state.get("body_id")
+            or tracking_state.get("target_name")
+            or "unknown"
+        ).strip()
+        if not target_identifier:
+            target_identifier = "unknown"
+
         earth_position = self._interpolate_earth_position(input_payload, now_epoch)
         if not earth_position:
             earth_position = self._parse_position_vector(input_payload.get("earth_position_xyz_au"))
         if not earth_position:
-            logger.warning("Missing earth ephemeris in tracker worker context")
+            if not input_payload:
+                logger.warning(
+                    "Missing %s ephemeris payload in tracker worker context "
+                    "(tracker_id=%s target=%s). The manager may not have a valid cached "
+                    "vector snapshot for this target yet.",
+                    target_type,
+                    self.tracker_id,
+                    target_identifier,
+                )
+                return None
+
+            payload_target_type = str(input_payload.get("target_type") or "unknown").strip()
+            payload_identifier = str(
+                input_payload.get("command")
+                or input_payload.get("body_id")
+                or input_payload.get("norad_id")
+                or input_payload.get("name")
+                or "unknown"
+            ).strip()
+            if not payload_identifier:
+                payload_identifier = "unknown"
+            logger.warning(
+                "Missing earth ephemeris in tracker worker payload "
+                "(tracker_id=%s target_type=%s target=%s payload_target_type=%s "
+                "payload_target=%s earth_samples=%s payload_keys=%s)",
+                self.tracker_id,
+                target_type,
+                target_identifier,
+                payload_target_type or "unknown",
+                payload_identifier,
+                len(input_payload.get("earth_orbit_samples_xyz_au") or []),
+                sorted(input_payload.keys()),
+            )
             return None
 
         if target_type == "mission":

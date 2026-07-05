@@ -31,7 +31,7 @@ class WaterfallConfig:
 
     # Default configuration
     DEFAULT_CONFIG = {
-        "fft_size": 2048,
+        "fft_size": 4096,
         "max_height": 2500,
         "window": "hann",
         "overlap": 0.5,
@@ -42,7 +42,7 @@ class WaterfallConfig:
 
     def __init__(
         self,
-        fft_size: int = 2048,
+        fft_size: int = 4096,
         max_height: int = 2500,
         window: str = "hann",
         overlap: float = 0.5,
