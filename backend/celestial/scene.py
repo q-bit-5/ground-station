@@ -763,7 +763,8 @@ async def _load_earth_observer_vectors(
             earth_snapshot.get("cache"),
         )
     else:
-        logger.warning(
+        log = logger.debug if not allow_network_fetch else logger.warning
+        log(
             "Earth Horizons vectors unavailable for observer calculations (cache=%s error=%s)",
             earth_snapshot.get("cache"),
             earth_snapshot.get("error"),
