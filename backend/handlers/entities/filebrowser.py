@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from PIL import Image
 
 from common.decoded_thumbnails import get_decoded_thumbnail_url
+from common.thumbnails import delete_image_thumbnail, get_image_thumbnail_url
 
 
 def get_disk_usage(path: Path) -> Dict[str, Union[int, str]]:
@@ -257,6 +258,10 @@ def delete_recording_files(recordings_dir: Path, recording_name: str, logger) ->
         snapshot_file.unlink()
         deleted_files.append(snapshot_file.name)
 
+    thumbnail_file = delete_image_thumbnail(snapshot_file)
+    if thumbnail_file:
+        deleted_files.append(str(thumbnail_file.relative_to(recordings_dir)))
+
     if deleted_files:
         logger.info(f"Deleted recording '{recording_name}': {', '.join(deleted_files)}")
 
@@ -281,6 +286,7 @@ def delete_snapshot_file(snapshots_dir: Path, snapshot_filename: str, logger) ->
         return False
 
     snapshot_file.unlink()
+    delete_image_thumbnail(snapshot_file)
     logger.info(f"Deleted snapshot: {snapshot_filename}")
     return True
 
@@ -476,6 +482,7 @@ async def filebrowser_request_routing(sio, cmd, data, logger, sid):
                         snapshot_info = {
                             "filename": snapshot_file.name,
                             "url": f"/recordings/{snapshot_file.name}",
+                            "thumbnail_url": get_image_thumbnail_url(snapshot_file, "/recordings"),
                             "width": width,
                             "height": height,
                         }
@@ -530,6 +537,7 @@ async def filebrowser_request_routing(sio, cmd, data, logger, sid):
                             "width": width,
                             "height": height,
                             "url": f"/snapshots/{png_file.name}",
+                            "thumbnail_url": get_image_thumbnail_url(png_file, "/snapshots"),
                         }
                     )
 
@@ -942,6 +950,7 @@ async def filebrowser_request_routing(sio, cmd, data, logger, sid):
                     snapshot_info = {
                         "filename": snapshot_file.name,
                         "url": f"/recordings/{snapshot_file.name}",
+                        "thumbnail_url": get_image_thumbnail_url(snapshot_file, "/recordings"),
                         "width": width,
                         "height": height,
                     }
@@ -999,6 +1008,7 @@ async def filebrowser_request_routing(sio, cmd, data, logger, sid):
                 snapshot_info = {
                     "filename": snapshot_file.name,
                     "url": f"/recordings/{snapshot_file.name}",
+                    "thumbnail_url": get_image_thumbnail_url(snapshot_file, "/recordings"),
                     "width": width,
                     "height": height,
                 }
@@ -1090,6 +1100,7 @@ async def filebrowser_request_routing(sio, cmd, data, logger, sid):
                     "width": width,
                     "height": height,
                     "url": f"/snapshots/{png_file.name}",
+                    "thumbnail_url": get_image_thumbnail_url(png_file, "/snapshots"),
                 }
                 snapshots.append(snapshot)
 

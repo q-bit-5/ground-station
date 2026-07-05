@@ -365,7 +365,7 @@ export default function WaterfallViewer({
                 border: '1px solid',
                 borderColor: 'divider',
                 borderRadius: 1.5,
-                bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'),
+                bgcolor: '#05070b',
                 touchAction: 'pan-y',
                 cursor: containerCursor,
                 ...containerSx,

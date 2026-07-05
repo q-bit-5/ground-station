@@ -1039,6 +1039,8 @@ export default function FileBrowserMain() {
                                                     height="200"
                                                     image={item.image}
                                                     alt={item.displayName}
+                                                    loading="lazy"
+                                                    decoding="async"
                                                     sx={{
                                                         objectFit: 'cover',
                                                     }}

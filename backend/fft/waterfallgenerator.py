@@ -299,6 +299,22 @@ class WaterfallGenerator:
 
             # Calculate dimensions
             dimensions = self._calculate_dimensions(duration_sec, sample_rate, total_samples)
+            output_path = Path(f"{recording_base}.png")
+
+            if dimensions["total_frames"] < 3:
+                self.logger.warning(
+                    "Recording is too short for a reliable waterfall "
+                    f"({dimensions['total_frames']} FFT frames); saving transparent placeholder"
+                )
+                self._save_transparent_waterfall_image(
+                    output_path, dimensions["width"], dimensions["height"]
+                )
+                if self.config.generate_thumbnail:
+                    thumbnail_path = recording_path.with_name(
+                        f"{recording_path.name}_waterfall_thumb.png"
+                    )
+                    self._generate_thumbnail(output_path, thumbnail_path)
+                return True
 
             sample_reader = self._build_sample_reader(data_file, dtype_info)
 
@@ -322,7 +338,6 @@ class WaterfallGenerator:
             waterfall_data = self._generate_waterfall_data(sample_reader, total_samples, dimensions)
 
             # Apply colormap and save
-            output_path = Path(f"{recording_base}.png")
             self._save_waterfall_image(waterfall_data, output_path, metadata)
 
             self.logger.info(
@@ -440,8 +455,20 @@ class WaterfallGenerator:
         fft_size = self.config.fft_size
         hop_size = int(fft_size * (1 - self.config.overlap))
 
-        # Total possible FFT frames
-        total_frames = (total_samples - fft_size) // hop_size + 1
+        # Total possible FFT frames. Very short recordings can contain fewer
+        # samples than a single FFT window, so clamp to zero instead of letting
+        # negative dimensions reach the image writer.
+        total_frames = max(0, (total_samples - fft_size) // hop_size + 1)
+
+        if total_frames == 0:
+            return {
+                "width": fft_size,
+                "height": 1,
+                "frames_per_row": 1,
+                "time_per_row": hop_size / sample_rate,
+                "hop_size": hop_size,
+                "total_frames": total_frames,
+            }
 
         # Adaptive height based on duration. The higher caps preserve more
         # temporal texture from offline recordings instead of averaging it away.
@@ -567,6 +594,17 @@ class WaterfallGenerator:
         # Create PIL Image and save
         # Flip vertically so newest is at bottom
         image = Image.fromarray(np.flipud(rgb_image), mode="RGB")
+        image.save(output_path, "PNG", optimize=True)
+
+    def _save_transparent_waterfall_image(self, output_path: Path, width: int, height: int):
+        """
+        Save a transparent placeholder when the IQ recording is too short to
+        produce a meaningful waterfall. This avoids misleading all-white images.
+        """
+        safe_width = max(1, int(width))
+        safe_height = max(1, int(height))
+        transparent = np.zeros((safe_height, safe_width, 4), dtype=np.uint8)
+        image = Image.fromarray(transparent, mode="RGBA")
         image.save(output_path, "PNG", optimize=True)
 
     def _generate_thumbnail(self, source_path: Path, thumbnail_path: Path):
