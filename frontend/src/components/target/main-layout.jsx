@@ -60,6 +60,7 @@ import RotatorControl from "../dashboard/rotator-control.jsx";
 import RigControl from "../dashboard/rig-control.jsx";
 
 
+
 // global leaflet map object
 let MapObject = null;
 const storageMapZoomValueKey = "target-map-zoom-level";
