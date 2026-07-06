@@ -139,6 +139,43 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
         paddingBottom: 0,
     },
 }));
+const DIALOG_PAPER_SX = {
+    bgcolor: 'background.paper',
+    border: (theme) => `1px solid ${theme.palette.divider}`,
+    borderRadius: 2,
+};
+const DIALOG_TITLE_SX = {
+    bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100'),
+    borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+    fontSize: '1.125rem',
+    fontWeight: 'bold',
+    py: 2.2,
+};
+const DIALOG_CONTENT_SX = {
+    px: 2,
+    pt: 2,
+    pb: 1.5,
+};
+const DIALOG_ACTIONS_SX = {
+    px: 2,
+    py: 1.5,
+    bgcolor: 'background.paper',
+    borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+};
+const FOOTER_ACTION_ROW_SX = {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+    overflowX: 'auto',
+    msOverflowStyle: 'none',
+    scrollbarWidth: 'none',
+    '&::-webkit-scrollbar': { display: 'none' },
+    '& > *': {
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
+    },
+};
 
 const CustomPagination = () => {
     const apiRef = useGridApiContext();
@@ -416,9 +453,9 @@ const PassesTableSettingsDialog = ({ open, onClose }) => {
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{t('passes.settings.title')}</DialogTitle>
-            <DialogContent>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: DIALOG_PAPER_SX }}>
+            <DialogTitle sx={DIALOG_TITLE_SX}>{t('passes.settings.title')}</DialogTitle>
+            <DialogContent sx={DIALOG_CONTENT_SX}>
                 <Box sx={{ mb: 2 }}>
                     <FormControl fullWidth size="small" sx={{ mt: 1 }}>
                         <InputLabel id="celestial-passes-rows-label">{t('passes.settings.rows_per_page')}</InputLabel>
@@ -468,13 +505,16 @@ const PassesTableSettingsDialog = ({ open, onClose }) => {
                     </Box>
                 ))}
             </DialogContent>
-            <DialogActions>
-                <Button onClick={handleResetValues} variant="outlined" color="warning">
-                    {t('passes.settings.reset_values')}
-                </Button>
-                <Button onClick={onClose} variant="contained">
-                    {t('passes.settings.close')}
-                </Button>
+            <DialogActions sx={DIALOG_ACTIONS_SX}>
+                <Box sx={FOOTER_ACTION_ROW_SX}>
+                    <Button onClick={handleResetValues} variant="outlined">
+                        {t('passes.settings.reset_values')}
+                    </Button>
+                    <Box sx={{ flex: 1, minWidth: 8 }} />
+                    <Button onClick={onClose} variant="contained">
+                        {t('passes.settings.close')}
+                    </Button>
+                </Box>
             </DialogActions>
         </Dialog>
     );

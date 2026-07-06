@@ -57,28 +57,35 @@ const DIALOG_PAPER_SX = {
     borderRadius: 2,
 };
 const DIALOG_TITLE_SX = {
-    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+    bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100'),
     borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-    fontSize: '1.25rem',
+    fontSize: '1.125rem',
     fontWeight: 'bold',
-    py: 2.5,
+    py: 2.2,
 };
 const DIALOG_CONTENT_SX = {
-    px: 3,
-    py: 3,
+    px: 2,
+    pt: 2,
+    pb: 1.5,
 };
 const DIALOG_ACTIONS_SX = {
-    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+    bgcolor: 'background.paper',
     borderTop: (theme) => `1px solid ${theme.palette.divider}`,
-    px: 3,
-    py: 2.5,
-    gap: 2,
+    px: 2,
+    py: 1.5,
 };
-const DIALOG_CANCEL_BUTTON_SX = {
-    borderColor: (theme) => theme.palette.mode === 'dark' ? 'grey.700' : 'grey.400',
-    '&:hover': {
-        borderColor: (theme) => theme.palette.mode === 'dark' ? 'grey.600' : 'grey.500',
-        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.200',
+const FOOTER_ACTION_ROW_SX = {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+    overflowX: 'auto',
+    msOverflowStyle: 'none',
+    scrollbarWidth: 'none',
+    '&::-webkit-scrollbar': { display: 'none' },
+    '& > *': {
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
     },
 };
 
@@ -318,12 +325,15 @@ const SettingsDialog = ({ open, onClose }) => {
                 ))}
             </DialogContent>
             <DialogActions sx={DIALOG_ACTIONS_SX}>
-                <Button onClick={handleResetValues} variant="outlined" color="warning">
-                    {t('monitored.settings.reset_values')}
-                </Button>
-                <Button onClick={onClose} variant="outlined" sx={DIALOG_CANCEL_BUTTON_SX}>
-                    {t('monitored.settings.close')}
-                </Button>
+                <Box sx={FOOTER_ACTION_ROW_SX}>
+                    <Button onClick={handleResetValues} variant="outlined">
+                        {t('monitored.settings.reset_values')}
+                    </Button>
+                    <Box sx={{ flex: 1, minWidth: 8 }} />
+                    <Button onClick={onClose} variant="contained">
+                        {t('monitored.settings.close')}
+                    </Button>
+                </Box>
             </DialogActions>
         </Dialog>
     );

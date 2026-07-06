@@ -46,6 +46,20 @@ const DIALOG_CONTENT_SX = {
     display: 'flex',
     flexDirection: 'column',
 };
+const FOOTER_ACTION_ROW_SX = {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+    overflowX: 'auto',
+    msOverflowStyle: 'none',
+    scrollbarWidth: 'none',
+    '&::-webkit-scrollbar': { display: 'none' },
+    '& > *': {
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
+    },
+};
 
 const SOLAR_SETTING_KEYS = Object.keys(DEFAULT_SOLAR_SYSTEM_DISPLAY_OPTIONS);
 const PLANETARIUM_SETTING_KEYS = Object.keys(DEFAULT_PLANETARIUM_DISPLAY_OPTIONS);
@@ -470,14 +484,9 @@ function SolarSystemLayoutOptionsDialog({
                             borderColor: 'divider',
                         }}
                     >
-                        <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            spacing={1}
-                            alignItems={{ xs: 'stretch', sm: 'center' }}
-                            justifyContent="space-between"
-                        >
+                        <Box sx={FOOTER_ACTION_ROW_SX}>
                             <Button
-                                variant="text"
+                                variant="outlined"
                                 onClick={() => {
                                     setDraftSolarSettings({ ...DEFAULT_SOLAR_SYSTEM_DISPLAY_OPTIONS });
                                     setDraftPlanetariumSettings({ ...DEFAULT_PLANETARIUM_DISPLAY_OPTIONS });
@@ -488,15 +497,14 @@ function SolarSystemLayoutOptionsDialog({
                                 {t('layout_options.reset_defaults')}
                             </Button>
 
-                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-                                <Button variant="outlined" onClick={handleCancel}>
-                                    {tCommon('close')}
-                                </Button>
-                                <Button variant="contained" onClick={handleApply} disabled={!isDirty}>
-                                    {t('layout_options.apply')}
-                                </Button>
-                            </Stack>
-                        </Stack>
+                            <Box sx={{ flex: 1, minWidth: 8 }} />
+                            <Button variant="outlined" onClick={handleCancel}>
+                                {tCommon('close')}
+                            </Button>
+                            <Button variant="contained" onClick={handleApply} disabled={!isDirty}>
+                                {t('layout_options.apply')}
+                            </Button>
+                        </Box>
                     </Box>
                 </Box>
             </DialogContent>
