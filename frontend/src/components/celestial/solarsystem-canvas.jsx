@@ -99,6 +99,9 @@ const formatAu = (value) => {
     if (value >= 1) return `${value.toFixed(value >= 10 ? 0 : 1)} AU`;
     return `${value.toFixed(2)} AU`;
 };
+const resolveGridStepAu = (zoom) => (
+    zoom > 80 ? 0.5 : zoom > 30 ? 1 : zoom > 12 ? 2 : 5
+);
 const resolveLocaleRegion = (localeTag) => {
     const normalized = String(localeTag || '').trim();
     if (!normalized) return '';
@@ -561,6 +564,7 @@ const SolarSystemCanvas = ({
     enableMapDragging = true,
     enableMapZooming = true,
     onViewportCommit = null,
+    onStatusBarInfoChange = null,
     displayOptions = DEFAULT_DISPLAY_OPTIONS,
 }) => {
     const theme = useTheme();
@@ -972,6 +976,7 @@ const SolarSystemCanvas = ({
         const cx = width / 2 + viewport.panX;
         const cy = height / 2 + viewport.panY;
         const scale = viewport.zoom;
+        const gridStepAu = resolveGridStepAu(scale);
         const viewportCenterWorldXAu = (width / 2 - cx) / scale;
         const viewportCenterWorldYAu = (cy - height / 2) / scale;
         const distanceKmFromViewportCenter = (worldXAu, worldYAu) => {
@@ -1343,7 +1348,6 @@ const SolarSystemCanvas = ({
 
         // World-space grid (moves with pan/zoom).
         if (effectiveDisplayOptions.showGrid) {
-            const gridStepAu = scale > 80 ? 0.5 : scale > 30 ? 1 : scale > 12 ? 2 : 5;
             const worldMinX = (0 - cx) / scale;
             const worldMaxX = (width - cx) / scale;
             const worldMaxY = (cy - 0) / scale;
@@ -1539,6 +1543,10 @@ const SolarSystemCanvas = ({
                 ctx.fill();
 
                 if (shouldShowBodyLabels) {
+                    const isMoon = normalizeBodyId(planet?.body_type) === 'moon';
+                    // Keep moon labels readable by only drawing them once each grid square
+                    // represents 1 AU or less (higher zoom levels).
+                    if (isMoon && gridStepAu > 1) return;
                     // Keep the Sun label clear of the larger center icon.
                     const labelAnchorX = id === 'sun' ? sx + 12 : sx;
                     const bodyTargetKey = `body:${id}`;
@@ -2314,7 +2322,7 @@ const SolarSystemCanvas = ({
 
     const scaleIndicator = useMemo(() => {
         const zoom = viewport.zoom;
-        const gridStepAu = zoom > 80 ? 0.5 : zoom > 30 ? 1 : zoom > 12 ? 2 : 5;
+        const gridStepAu = resolveGridStepAu(zoom);
         const pixels = gridStepAu * zoom;
         return {
             label: t('canvas.solar.scale', { value: formatAu(gridStepAu) }),
@@ -2349,6 +2357,21 @@ const SolarSystemCanvas = ({
             mouse: mouseLabel,
         });
     }, [isDragInteractionEnabled, isZoomInteractionEnabled, t]);
+
+    useEffect(() => {
+        if (!onStatusBarInfoChange) return;
+        // Keep status-bar text in sync with the same toggles used by canvas overlays.
+        onStatusBarInfoChange({
+            gestureHintText: effectiveDisplayOptions.showGestureHint ? gestureHintText : '',
+            scaleLabel: effectiveDisplayOptions.showScaleIndicator ? scaleIndicator.label : '',
+        });
+    }, [
+        onStatusBarInfoChange,
+        effectiveDisplayOptions.showGestureHint,
+        effectiveDisplayOptions.showScaleIndicator,
+        gestureHintText,
+        scaleIndicator.label,
+    ]);
 
     return (
         <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -2389,45 +2412,6 @@ const SolarSystemCanvas = ({
                 >
                     {timestampText}
                 </Typography>
-            ) : null}
-            {effectiveDisplayOptions.showGestureHint ? (
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        left: 10,
-                        bottom: 8,
-                        color: 'text.secondary',
-                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.52)',
-                        px: 0.8,
-                        py: 0.35,
-                        borderRadius: 0.5,
-                        fontFamily: 'monospace',
-                        opacity: 0.9,
-                    }}
-                >
-                    <Typography variant="caption" sx={{ fontFamily: 'inherit', lineHeight: 1.1 }}>
-                        {gestureHintText}
-                    </Typography>
-                </Box>
-            ) : null}
-            {effectiveDisplayOptions.showScaleIndicator ? (
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        right: 10,
-                        bottom: 8,
-                        color: 'text.secondary',
-                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)',
-                        px: 0.8,
-                        py: 0.5,
-                        borderRadius: 0.5,
-                        fontFamily: 'monospace',
-                    }}
-                >
-                    <Typography variant="caption" sx={{ fontFamily: 'inherit', lineHeight: 1.1 }}>
-                        {scaleIndicator.label}
-                    </Typography>
-                </Box>
             ) : null}
         </Box>
     );

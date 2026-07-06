@@ -294,6 +294,10 @@ const CelestialMainLayout = () => {
     const [centerSunSignal, setCenterSunSignal] = useState(0);
     const [openSolarSystemLayoutOptionsDialog, setOpenSolarSystemLayoutOptionsDialog] = useState(false);
     const [solarSystemFullscreen, setSolarSystemFullscreen] = useState(false);
+    const [solarCanvasStatusInfo, setSolarCanvasStatusInfo] = useState({
+        gestureHintText: '',
+        scaleLabel: '',
+    });
     const solarSystemViewportRef = React.useRef(null);
     const previousRenderableSolarBodiesCountRef = React.useRef(0);
 
@@ -398,6 +402,22 @@ const CelestialMainLayout = () => {
             return;
         }
         requestFullscreen(viewportElement);
+    }, []);
+    const handleSolarStatusBarInfoChange = React.useCallback((nextStatusInfo) => {
+        const nextGestureHintText = String(nextStatusInfo?.gestureHintText || '');
+        const nextScaleLabel = String(nextStatusInfo?.scaleLabel || '');
+        setSolarCanvasStatusInfo((previous) => {
+            if (
+                previous.gestureHintText === nextGestureHintText
+                && previous.scaleLabel === nextScaleLabel
+            ) {
+                return previous;
+            }
+            return {
+                gestureHintText: nextGestureHintText,
+                scaleLabel: nextScaleLabel,
+            };
+        });
     }, []);
 
     const handleViewportCommit = React.useCallback((nextViewport) => {
@@ -602,6 +622,16 @@ const CelestialMainLayout = () => {
             }),
         );
     }, [socket, celestialState.mapSettings, dispatch]);
+    const handleToggleMapDragging = React.useCallback(() => {
+        updateProjectionSetting({
+            enableMapDragging: !interactionSettings.enableMapDragging,
+        });
+    }, [interactionSettings.enableMapDragging, updateProjectionSetting]);
+    const handleToggleMapZooming = React.useCallback(() => {
+        updateProjectionSetting({
+            enableMapZooming: !interactionSettings.enableMapZooming,
+        });
+    }, [interactionSettings.enableMapZooming, updateProjectionSetting]);
 
     const gridContents = [
         <StyledIslandParentNoScrollbar key="solar-system">
@@ -660,6 +690,10 @@ const CelestialMainLayout = () => {
                         fullscreen={solarSystemFullscreen}
                         fullscreenLabel={tCelestial('toolbar.go_fullscreen')}
                         exitFullscreenLabel={tCelestial('toolbar.exit_fullscreen')}
+                        mapDraggingEnabled={interactionSettings.enableMapDragging}
+                        mapZoomingEnabled={interactionSettings.enableMapZooming}
+                        onToggleMapDragging={handleToggleMapDragging}
+                        onToggleMapZooming={handleToggleMapZooming}
                         showZoomButtons={!interactionSettings.enableMapZooming}
                     />
                 ) : null}
@@ -695,6 +729,7 @@ const CelestialMainLayout = () => {
                                     enableMapDragging={interactionSettings.enableMapDragging}
                                     enableMapZooming={interactionSettings.enableMapZooming}
                                     onViewportCommit={handleViewportCommit}
+                                    onStatusBarInfoChange={handleSolarStatusBarInfoChange}
                                     displayOptions={solarSystemDisplayOptions}
                                 />
                             )}
@@ -756,9 +791,8 @@ const CelestialMainLayout = () => {
                     )}
                 </Box>
                 <CelestialStatusBar
-                    planetsCount={planetsCount}
-                    moonsCount={moonsCount}
-                    trackedCount={trackedCount}
+                    gestureHintText={viewMode === VIEW_MODE_SOLAR_SYSTEM ? solarCanvasStatusInfo.gestureHintText : ''}
+                    scaleLabel={viewMode === VIEW_MODE_SOLAR_SYSTEM ? solarCanvasStatusInfo.scaleLabel : ''}
                 />
             </Box>
         </StyledIslandParentNoScrollbar>,

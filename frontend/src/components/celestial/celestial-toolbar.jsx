@@ -8,6 +8,8 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import PanToolIcon from '@mui/icons-material/PanTool';
+import ZoomInMapIcon from '@mui/icons-material/ZoomInMap';
 import { ResetZoomIcon } from '../common/custom-icons.jsx';
 
 const CelestialToolbar = ({
@@ -23,6 +25,10 @@ const CelestialToolbar = ({
     fullscreen = false,
     fullscreenLabel,
     exitFullscreenLabel,
+    mapDraggingEnabled = true,
+    mapZoomingEnabled = true,
+    onToggleMapDragging,
+    onToggleMapZooming,
     showZoomButtons = true,
     disabled = false,
 }) => {
@@ -65,6 +71,32 @@ const CelestialToolbar = ({
                                     sx={{ borderRadius: 0 }}
                                 >
                                     <FitScreenIcon />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title={t('layout_options.options.enable_map_dragging.label')}>
+                            <span>
+                                <IconButton
+                                    onClick={onToggleMapDragging}
+                                    disabled={disabled || !onToggleMapDragging}
+                                    color={mapDraggingEnabled ? 'warning' : 'primary'}
+                                    sx={{ borderRadius: 0 }}
+                                    aria-pressed={mapDraggingEnabled}
+                                >
+                                    <PanToolIcon fontSize="small" />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title={t('layout_options.options.enable_map_zooming.label')}>
+                            <span>
+                                <IconButton
+                                    onClick={onToggleMapZooming}
+                                    disabled={disabled || !onToggleMapZooming}
+                                    color={mapZoomingEnabled ? 'warning' : 'primary'}
+                                    sx={{ borderRadius: 0 }}
+                                    aria-pressed={mapZoomingEnabled}
+                                >
+                                    <ZoomInMapIcon />
                                 </IconButton>
                             </span>
                         </Tooltip>
